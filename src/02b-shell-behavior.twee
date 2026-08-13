@@ -1,0 +1,250 @@
+:: ShellScript [script]
+/* =========================================================================
+ * Module: shell — runtime behaviour for the fixed-resolution app shell.
+ *
+ * Responsibilities:
+ *   1. Apply user settings: aspect ratio (16:9 / 4:3), font scale, scene
+ *      auto-hide. These update live — no reload needed.
+ *   2. Compute and apply the scale factor (min(vw/BASE_W, vh/BASE_H)).
+ *      The scale is also exposed as --shell-scale so SugarCube's #ui-dialog
+ *      (which lives outside #scale-wrapper) can scale to match.
+ *   3. Wrap the panel (PanelLeft passage) in a .sidebar-body grid,
+ *      preserving the <header> as a sibling above the body.
+ *   4. Hide the scene canvas ON SCROLL (down = hide, top = show).
+ *   5. Render the sidebar toggle button on narrow viewports.
+ * ========================================================================= */
+(function () {
+        "use strict";
+
+        /* --- Aspect ratio presets ---------------------------------------- */
+        var ASPECT_RATIOS = {
+                "16:9": { w: 1600, h: 900 },
+                "4:3":  { w: 1200, h: 900 }
+        };
+
+        /* --- State ------------------------------------------------------- */
+        var currentBase = ASPECT_RATIOS["16:9"];
+        var SIDEBAR_BREAKPOINT = 760;
+        var SCENE_HIDE_SCROLL_THRESHOLD = 8;
+
+        /* --- Settings application ---------------------------------------- *
+         * Reads SugarCube.settings and applies:
+         *   aspectRatio → sets --base-w / --base-h on #scale-wrapper AND :root
+         *                 (so #ui-dialog, which is outside the wrapper, also
+         *                 gets the vars).
+         *   fontScale   → sets --font-scale on #scale-wrapper AND :root.
+         *   sceneAutoHide → read by updateSceneVisibility(). */
+        function getSettings() {
+                try {
+                        return SugarCube.settings || {};
+                } catch (e) {
+                        return {};
+                }
+        }
+
+        function applySettings() {
+                var s = getSettings();
+                var ar = s.aspectRatio && ASPECT_RATIOS[s.aspectRatio]
+                        ? s.aspectRatio : "16:9";
+                currentBase = ASPECT_RATIOS[ar];
+                var fontScale = typeof s.fontScale === "number"
+                        ? s.fontScale : 1.0;
+
+                var wrapper = document.getElementById("scale-wrapper");
+                var targets = [document.documentElement];
+                if (wrapper) targets.push(wrapper);
+
+                targets.forEach(function (el) {
+                        el.style.setProperty("--base-w", currentBase.w + "px");
+                        el.style.setProperty("--base-h", currentBase.h + "px");
+                        el.style.setProperty("--font-scale", String(fontScale));
+                });
+
+                /* Recompute scale (BASE_W/H changed) and scene visibility. */
+                recomputeScale();
+                updateSceneVisibility(
+                        (document.getElementById("passages") || {}).scrollTop || 0
+                );
+        }
+
+        /* --- Scale factor ------------------------------------------------ *
+         * min(vw/BASE_W, vh/BASE_H). Applied as transform: scale() on
+         * #scale-wrapper. Also set as --shell-scale on :root so #ui-dialog
+         * (which is position:fixed outside the wrapper) can scale to match. */
+        function recomputeScale() {
+                var wrapper = document.getElementById("scale-wrapper");
+                var w = window.innerWidth;
+                var h = window.innerHeight;
+                var scale = Math.min(w / currentBase.w, h / currentBase.h);
+
+                if (wrapper) {
+                        wrapper.style.transform = "scale(" + scale + ")";
+                }
+                /* Expose for #ui-dialog. */
+                document.documentElement.style.setProperty("--shell-scale", String(scale));
+        }
+
+        /* --- Sidebar body wrapper ---------------------------------------- *
+         * Restructure #left-sidebar into:
+         *   <header class="sidebar-header">   ← preserved
+         *   <div class="sidebar-body">         ← grid wrapper
+         *     ui-card (Time)
+         *     ui-card (Resources)
+         *     <div class="sidebar-body__spacer">
+         *     ui-card (Actions)               ← last card, after spacer
+         *
+         * Idempotent. The MutationObserver catches SugarCube re-renders. */
+        function wrapSidebarBody() {
+                var sidebar = document.getElementById("left-sidebar");
+                if (!sidebar) return;
+
+                if (sidebar.querySelector(":scope > .sidebar-body") &&
+                    sidebar.querySelector(":scope > .sidebar-header")) return;
+
+                var header = null;
+                var cards = [];
+                Array.prototype.slice.call(sidebar.children).forEach(function (el) {
+                        if (el.classList.contains("sidebar-toggle")) return;
+                        if (el.classList.contains("sidebar-header")) header = el;
+                        else if (el.classList.contains("ui-card")) cards.push(el);
+                });
+
+                while (sidebar.firstChild) sidebar.removeChild(sidebar.firstChild);
+                if (header) sidebar.appendChild(header);
+
+                var body = document.createElement("div");
+                body.className = "sidebar-body";
+
+                if (cards.length >= 2) {
+                        var last = cards.pop();
+                        cards.forEach(function (c) { body.appendChild(c); });
+                        var spacer = document.createElement("div");
+                        spacer.className = "sidebar-body__spacer";
+                        body.appendChild(spacer);
+                        body.appendChild(last);
+                } else {
+                        cards.forEach(function (c) { body.appendChild(c); });
+                }
+                sidebar.appendChild(body);
+        }
+
+        /* --- Scene on-scroll hide ---------------------------------------- */
+        function sceneAutoHideEnabled() {
+                try {
+                        return SugarCube.settings.sceneAutoHide !== false;
+                } catch (e) {
+                        return true;
+                }
+        }
+
+        function updateSceneVisibility(scrollTop) {
+                var scene = document.getElementById("scene-canvas");
+                if (!scene) return;
+
+                if (!sceneAutoHideEnabled()) {
+                        scene.classList.remove("is-hidden");
+                        return;
+                }
+
+                if (scrollTop > SCENE_HIDE_SCROLL_THRESHOLD) {
+                        scene.classList.add("is-hidden");
+                } else {
+                        scene.classList.remove("is-hidden");
+                }
+        }
+
+        function attachScrollListener() {
+                var passages = document.getElementById("passages");
+                if (!passages) return;
+                if (passages.__sceneScrollBound) return;
+                passages.__sceneScrollBound = true;
+                passages.addEventListener("scroll", function () {
+                        updateSceneVisibility(passages.scrollTop);
+                });
+                updateSceneVisibility(passages.scrollTop);
+        }
+
+        /* --- Sidebar toggle (narrow viewport) ---------------------------- */
+        function ensureSidebarToggle() {
+                var sidebar = document.getElementById("left-sidebar");
+                var mainArea = document.getElementById("main-area");
+                if (!sidebar || !mainArea) return;
+                if (mainArea.querySelector(":scope > .sidebar-toggle")) return;
+
+                var btn = document.createElement("button");
+                btn.type = "button";
+                btn.className = "sidebar-toggle";
+                btn.setAttribute("aria-label", "Toggle panel");
+                btn.setAttribute("aria-expanded", "false");
+                btn.textContent = "\u2630";
+                btn.addEventListener("click", function () {
+                        var open = sidebar.classList.toggle("is-open");
+                        btn.setAttribute("aria-expanded", open ? "true" : "false");
+                });
+                mainArea.appendChild(btn);
+        }
+
+        function closeSidebarOnNavigation() {
+                var sidebar = document.getElementById("left-sidebar");
+                if (sidebar) sidebar.classList.remove("is-open");
+        }
+
+        /* --- Lifecycle --------------------------------------------------- */
+        var sidebarObserver = null;
+        var isRestructuring = false;
+
+        function startSidebarObserver() {
+                var sidebar = document.getElementById("left-sidebar");
+                if (!sidebar || sidebarObserver) return;
+                sidebarObserver = new MutationObserver(function () {
+                        if (isRestructuring) return;
+                        isRestructuring = true;
+                        try { wrapSidebarBody(); } catch (e) {}
+                        isRestructuring = false;
+                });
+                sidebarObserver.observe(sidebar, { childList: true, subtree: false });
+        }
+
+        function refreshAll() {
+                wrapSidebarBody();
+                ensureSidebarToggle();
+                attachScrollListener();
+                updateSceneVisibility(0);
+                startSidebarObserver();
+        }
+
+        setup.shell = {
+                applySettings: applySettings,
+                wrapSidebarBody: wrapSidebarBody,
+                ensureSidebarToggle: ensureSidebarToggle,
+                updateSceneVisibility: updateSceneVisibility,
+                attachScrollListener: attachScrollListener,
+                recomputeScale: recomputeScale,
+                refresh: refreshAll,
+                config: {
+                        ASPECT_RATIOS: ASPECT_RATIOS,
+                        SIDEBAR_BREAKPOINT: SIDEBAR_BREAKPOINT,
+                        SCENE_HIDE_SCROLL_THRESHOLD: SCENE_HIDE_SCROLL_THRESHOLD
+                }
+        };
+
+        $(document)
+                .on(":passagerender.shell", refreshAll)
+                .on(":passagestart.shell", function () {
+                        closeSidebarOnNavigation();
+                })
+                .on(":passageinit.shell", function () {
+                        /* Apply settings on every passage load in case the
+                         * user changed them (defensive — applySettings is
+                         * also called on :dialogclose). */
+                        applySettings();
+                });
+
+        $(window).on("resize.shell", function () {
+                recomputeScale();
+        });
+
+        /* Initial application. */
+        applySettings();
+        recomputeScale();
+})();

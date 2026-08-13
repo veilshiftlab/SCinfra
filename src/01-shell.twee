@@ -1,91 +1,468 @@
 :: StoryInterface
-<div id="app-shell" class="app-shell">
-        <!-- Left sidebar: controls + info widgets -->
-        <aside id="left-sidebar" class="sidebar" data-passage="PanelLeft"></aside>
-
-        <!-- Main area: scene canvas + story content -->
-        <main id="main-area" class="main-area">
-                <div id="scene-canvas" class="scene-canvas"></div>
-                <div id="passages" class="story-content"></div>
-        </main>
+/* =========================================================================
+ * App shell — fixed virtual resolution, scaled to fit the viewport.
+ *
+ *   #stage            — fullscreen black backdrop (letterbox bars)
+ *   #scale-wrapper    — virtual resolution box (transform: scale to fit)
+ *   #app-shell        — grid: left sidebar + main area
+ *     #left-sidebar   — panel: title, time, resources, actions (bottom)
+ *     #main-area      — column: scene canvas (4:1, on-scroll hide) + passage
+ *       #scene-canvas — full-width 4:1 strip, pixel-perfect rendering
+ *       .story-content — passage area (scrollable, links inline)
+ *
+ * The base resolution (--base-w × --base-h) is set on #scale-wrapper by
+ * ShellScript based on the user's aspectRatio setting (16:9 → 1600×900,
+ * 4:3 → 1200×900). The --font-scale var is set from the fontScale setting.
+ * Both update live when the user changes settings — no reload needed.
+ *
+ * Grid vs flex choices:
+ *   .app-shell      — grid (two columns: sidebar | main)
+ *   .sidebar-body   — grid with explicit rows + 1fr spacer between
+ *                     Resources and Actions (game/engine separation)
+ *   .main-area      — flex column (scene + story-content stack)
+ *   .ui-grid        — grid (back/forward, money/debt, etc.)
+ * ========================================================================= */
+<div id="stage">
+        <div id="scale-wrapper">
+                <div id="app-shell" class="app-shell">
+                        <aside id="left-sidebar" class="sidebar" data-passage="PanelLeft"></aside>
+                        <main id="main-area" class="main-area">
+                                <div id="scene-canvas" class="scene-canvas"></div>
+                                <div class="story-content">
+                                        <div id="passages"></div>
+                                </div>
+                        </main>
+                </div>
+        </div>
 </div>
 
 :: ShellStyle [stylesheet]
 /* =========================================================================
- * Minimal Shell — 3 sections: left panel, scene, passage.
- * No right sidebar, no floating window, no avatar.
+ * Shell — fixed virtual resolution, scaled to fit.
+ *
+ * --base-w and --base-h are set on #scale-wrapper by ShellScript based on
+ * the aspectRatio setting:
+ *   16:9 → 1600 × 900
+ *   4:3  → 1200 × 900
+ * All layout dimensions are derived from these via CSS calc().
+ *
+ * --font-scale is set from the fontScale setting (0.8–1.4). All font-size
+ * declarations multiply by this var so the user can globally resize text.
+ *
+ * --ui-unit is the sizing atom for UI primitives (padding, gaps, button
+ * heights). Derived from --base-h so it scales with the shell.
  * ========================================================================= */
-:root {
-        --ui-unit: max(5px, min(calc(100vw / 40), calc(100vh / 80), 12px));
-        --left-sidebar-width: calc(var(--ui-unit) * 25);
-        --scene-height: 25vh;
-        --sidebar-pad: calc(var(--ui-unit) * 1);
-        --story-pad: calc(var(--ui-unit) * 1.5);
+#scale-wrapper {
+        /* Defaults — overridden by ShellScript.applySettings() */
+        --base-w: 1600px;
+        --base-h: 900px;
+        --font-scale: 1;
 
-        --ui-bg:        #222;
-        --ui-bg-raised: #2b2b2b;
-        --ui-border:    #444;
-        --ui-text:      #eee;
-        --ui-text-dim:  #aaa;
+        --ui-unit: calc(var(--base-h) / 90);
+
+        --sidebar-w: 280px;
+        --main-w: calc(var(--base-w) - var(--sidebar-w));
+        --scene-h: calc(var(--main-w) / 4);
+        --passage-h: calc(var(--base-h) - var(--scene-h));
+
+        --pixel-render: pixelated;
+
+        --font-family: "Noto Sans", "Liberation Sans", "DejaVu Sans", sans-serif;
+        --font-mono: "Noto Sans Mono", "Liberation Mono", "DejaVu Sans Mono", monospace;
+        --font-size-prose: calc(16px * var(--font-scale));
+        --font-size-ui: calc(14px * var(--font-scale));
+
+        --ui-bg:        #1c1c1c;
+        --ui-bg-raised: #242424;
+        --ui-bg-inset:  #181818;
+        --ui-border:    #3a3a3a;
+        --ui-border-faint: #2a2a2a;
+        --ui-text:      #e8e8e8;
+        --ui-text-dim:  #8a8a8a;
         --ui-accent:    #4da3ff;
+        --ui-hover:     #2a2a2a;
+        --ui-danger:    #e74c3c;
+        --ui-ok:        #2ecc71;
+        --ui-warn:      #f39c12;
+
+        --sidebar-collapse-bp: 760px;
+
+        width: var(--base-w);
+        height: var(--base-h);
+        flex: 0 0 auto;
+        transform-origin: center center;
+        position: relative;
+        overflow: hidden;
 }
 
+/* --- Reset / backdrop ----------------------------------------------- */
 html, body {
         height: 100%;
         margin: 0;
         overflow: hidden;
+        background: #000;
+        font-family: var(--font-family);
+        color: var(--ui-text);
 }
 
+#stage {
+        position: fixed;
+        inset: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: #000;
+        overflow: hidden;
+}
+
+/* --- App shell grid (sidebar | main) -------------------------------- */
 .app-shell {
         display: grid;
-        grid-template-columns: var(--left-sidebar-width) 1fr;
-        height: 100vh;
+        grid-template-columns: var(--sidebar-w) 1fr;
+        width: var(--base-w);
+        height: var(--base-h);
+        background: var(--ui-bg);
+        overflow: hidden;
 }
 
+/* --- Sidebar -------------------------------------------------------- */
 .sidebar {
         box-sizing: border-box;
-        overflow-y: auto;
-        padding: var(--sidebar-pad);
         background: var(--ui-bg);
-        color: var(--ui-text);
+        border-right: 1px solid var(--ui-border);
         display: flex;
         flex-direction: column;
-        gap: calc(var(--ui-unit) * 0.75);
-        border-right: 1px solid var(--ui-border);
+        min-height: 0;
+        overflow: hidden;
+        position: relative;
 }
 
+.sidebar-header {
+        flex: 0 0 auto;
+        padding: calc(var(--ui-unit) * 1.5) calc(var(--ui-unit) * 1.2);
+        border-bottom: 1px solid var(--ui-border);
+        min-height: calc(var(--ui-unit) * 6);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+}
+
+.sidebar-header h1 {
+        margin: 0;
+        font-size: calc(var(--ui-unit) * 1.4 * var(--font-scale));
+        font-weight: bold;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        color: var(--ui-text);
+        text-align: center;
+}
+
+.sidebar-body {
+        flex: 1 1 auto;
+        display: grid;
+        grid-template-rows: auto auto 1fr auto;
+        gap: calc(var(--ui-unit) * 0.8);
+        padding: calc(var(--ui-unit) * 0.8);
+        overflow-y: auto;
+        min-height: 0;
+}
+
+.sidebar-body__spacer {
+        min-height: calc(var(--ui-unit) * 2);
+}
+
+/* --- Main area ------------------------------------------------------ */
 .main-area {
         position: relative;
         display: flex;
         flex-direction: column;
         min-width: 0;
+        min-height: 0;
         overflow: hidden;
+        background: var(--ui-bg);
 }
 
+/* --- Scene canvas --------------------------------------------------- */
 .scene-canvas {
-    position: relative;
-    overflow: hidden;
-    border-bottom: 1px solid var(--ui-border);
-    background: #000;
-
-    max-height: var(--scene-height);
+        position: relative;
+        flex: 0 0 auto;
+        width: 100%;
+        height: var(--scene-h);
+        overflow: hidden;
+        background: #000;
+        border-bottom: 1px solid var(--ui-border);
+        image-rendering: var(--pixel-render);
+        transition: height 0.2s ease, border-bottom-width 0.2s ease, opacity 0.2s ease;
 }
 
 .scene-canvas:empty {
-    display: none;
+        background: var(--ui-bg-inset);
 }
 
+.scene-canvas.is-hidden {
+        height: 0;
+        border-bottom-width: 0;
+        opacity: 0;
+}
+
+.scene-canvas img,
+.scene-canvas__image,
+.scene-canvas__character {
+        image-rendering: var(--pixel-render);
+        -ms-interpolation-mode: nearest-neighbor;
+}
+
+.scene-canvas__image {
+        position: absolute;
+        inset: 0;
+        width: 100%;
+        height: 100%;
+        object-fit: fill;
+        z-index: 1;
+        pointer-events: none;
+        user-select: none;
+}
+
+.scene-canvas__character {
+        position: absolute;
+        bottom: 0;
+        height: 100%;
+        width: auto;
+        max-width: 60%;
+        z-index: 2;
+        pointer-events: none;
+        user-select: none;
+        object-fit: contain;
+        object-position: bottom;
+}
+.scene-canvas__character--left   { left: 0;    transform: none; }
+.scene-canvas__character--center { left: 50%;  transform: translateX(-50%); }
+.scene-canvas__character--right  { right: 0;   transform: none; }
+.scene-canvas__character--far-left  { left: 0;    transform: translateX(-25%); }
+.scene-canvas__character--far-right { right: 0;   transform: translateX(25%); }
+
+/* --- Story content (passage area) ----------------------------------- */
 .story-content {
         flex: 1 1 auto;
+        min-height: 0;
+        overflow: hidden;
+        display: flex;
+        flex-direction: column;
+        background: var(--ui-bg);
+}
+
+#passages {
+        flex: 1 1 auto;
+        min-height: 0;
         overflow-y: auto;
-        padding: var(--story-pad);
+        overflow-x: hidden;
+        padding: calc(var(--ui-unit) * 1.6) calc(var(--ui-unit) * 2);
         box-sizing: border-box;
+        font-size: var(--font-size-prose);
+        line-height: 1.6;
+        color: var(--ui-text);
+        scroll-behavior: smooth;
 }
 
 #passages .passage {
-        background: var(--ui-bg);
-        border: 1px solid var(--ui-border);
-        border-radius: 4px;
-        padding: calc(var(--ui-unit) * 1.5);
+        background: transparent;
+        border: 0;
+        border-radius: 0;
+        padding: 0;
         margin: 0;
+}
+
+/* --- In-passage links (block buttons) ------------------------------- */
+#passages .passage a.link-internal,
+#passages .passage a.link-external {
+        display: block;
+        width: 100%;
+        box-sizing: border-box;
+        padding: calc(var(--ui-unit) * 0.8) calc(var(--ui-unit) * 1.4);
+        background: var(--ui-bg-raised);
+        color: var(--ui-text) !important;
+        border: 1px solid var(--ui-border);
+        border-radius: 3px;
+        font: inherit;
+        font-size: var(--font-size-ui);
+        text-decoration: none;
+        cursor: pointer;
+        user-select: none;
+        min-height: calc(var(--ui-unit) * 3.8);
+        line-height: 1.4;
+        text-align: left;
+        margin-bottom: calc(var(--ui-unit) * 0.4);
+        transition: background 0.12s ease, border-color 0.12s ease;
+}
+#passages .passage a.link-internal:hover,
+#passages .passage a.link-external:hover {
+        background: var(--ui-hover);
+        border-color: var(--ui-text-dim);
+}
+#passages .passage a.link-internal:active,
+#passages .passage a.link-external:active {
+        transform: translateY(1px);
+}
+
+#passages .passage .dialog a.link-internal,
+#passages .passage .dialog a.link-external {
+        display: inline;
+        width: auto;
+        padding: 0;
+        background: transparent;
+        color: inherit !important;
+        border: 0;
+        border-radius: 0;
+        font: inherit;
+        text-decoration: underline;
+        text-underline-offset: 2px;
+        min-height: 0;
+        margin-bottom: 0;
+}
+#passages .passage .dialog a.link-internal:hover,
+#passages .passage .dialog a.link-external:hover {
+        background: transparent;
+        border-color: transparent;
+}
+
+/* --- Sidebar toggle (narrow viewport only) -------------------------- */
+.sidebar-toggle {
+        position: absolute;
+        top: 4px;
+        left: 4px;
+        z-index: 60;
+        display: none;
+        align-items: center;
+        justify-content: center;
+        width: 36px;
+        height: 36px;
+        background: var(--ui-bg-raised);
+        border: 1px solid var(--ui-border);
+        border-radius: 3px;
+        color: var(--ui-text);
+        cursor: pointer;
+        font-size: 18px;
+        line-height: 1;
+}
+
+@media (max-width: 760px) {
+        .app-shell {
+                grid-template-columns: 0 1fr;
+        }
+        .sidebar {
+                position: absolute;
+                top: 0; left: 0; bottom: 0;
+                width: var(--sidebar-w);
+                z-index: 50;
+                transform: translateX(-100%);
+                transition: transform 0.2s ease;
+                box-shadow: 4px 0 16px rgba(0,0,0,0.4);
+        }
+        .sidebar.is-open {
+                transform: translateX(0);
+        }
+        .sidebar-toggle {
+                display: flex;
+        }
+}
+
+/* =========================================================================
+ * SugarCube dialog scaling
+ *
+ * SugarCube's #ui-dialog is position:fixed and positioned via JS based on
+ * the viewport size — it doesn't know about our #scale-wrapper transform.
+ * We override it to:
+ *   1. Inherit the CSS vars from #scale-wrapper (by setting them on :root
+ *      too — see ShellScript.applySettings).
+ *   2. Apply the same scale transform as #scale-wrapper so the dialog
+ *      scales with the shell.
+ *   3. Center it in the viewport (the transform handles the scaling; we
+ *      just need to position the unscaled box at the viewport center and
+ *      let transform-origin: center do the rest).
+ *
+ * The JS in ShellScript computes the dialog's unscaled position to match
+ * where it would sit inside the scale-wrapper, then applies the scale.
+ * ========================================================================= */
+#ui-overlay {
+        position: fixed;
+        inset: 0;
+        z-index: 100;
+        background: rgba(0, 0, 0, 0.6);
+}
+
+#ui-dialog {
+        position: fixed !important;
+        /* Override SugarCube's inline left/right/top. The dialog is centered
+         * via transform: translate(-50%, -50%) at top:50% left:50%, then
+         * scaled by the same factor as #scale-wrapper. */
+        left: 50% !important;
+        right: auto !important;
+        top: 50% !important;
+        bottom: auto !important;
+        transform: translate(-50%, -50%) scale(var(--shell-scale, 1));
+        transform-origin: center center;
+        z-index: 101;
+        max-width: calc(var(--base-w, 1600px) * 0.9);
+        max-height: calc(var(--base-h, 900px) * 0.9);
+        background: var(--ui-bg, #1c1c1c);
+        border: 1px solid var(--ui-border, #3a3a3a);
+        color: var(--ui-text, #e8e8e8);
+        font-family: var(--font-family, sans-serif);
+        font-size: calc(14px * var(--font-scale, 1));
+}
+
+#ui-dialog-titlebar {
+        background: var(--ui-bg-raised, #242424);
+        border-bottom: 1px solid var(--ui-border, #3a3a3a);
+        padding: calc(var(--ui-unit, 10px) * 0.6) calc(var(--ui-unit, 10px) * 0.8);
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+}
+
+#ui-dialog-title {
+        margin: 0;
+        font-size: calc(var(--ui-unit, 10px) * 1.2 * var(--font-scale, 1));
+        font-weight: bold;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+}
+
+#ui-dialog-close {
+        background: transparent;
+        border: 1px solid var(--ui-border, #3a3a3a);
+        color: var(--ui-text, #e8e8e8);
+        cursor: pointer;
+        padding: calc(var(--ui-unit, 10px) * 0.3) calc(var(--ui-unit, 10px) * 0.5);
+        font-size: calc(var(--ui-unit, 10px) * 1.2);
+        line-height: 1;
+}
+
+#ui-dialog-body {
+        padding: calc(var(--ui-unit, 10px) * 1) calc(var(--ui-unit, 10px) * 1.2);
+        overflow-y: auto;
+        max-height: calc(var(--base-h, 900px) * 0.75);
+}
+
+/* Dialog inputs / buttons match the shell palette */
+#ui-dialog button {
+        background: var(--ui-bg-raised, #242424);
+        color: var(--ui-text, #e8e8e8);
+        border: 1px solid var(--ui-border, #3a3a3a);
+        padding: calc(var(--ui-unit, 10px) * 0.4) calc(var(--ui-unit, 10px) * 0.8);
+        font: inherit;
+        cursor: pointer;
+}
+#ui-dialog button:hover {
+        background: var(--ui-hover, #2a2a2a);
+        border-color: var(--ui-text-dim, #8a8a8a);
+}
+#ui-dialog input[type="text"],
+#ui-dialog input[type="number"],
+#ui-dialog select {
+        background: var(--ui-bg-inset, #181818);
+        color: var(--ui-text, #e8e8e8);
+        border: 1px solid var(--ui-border, #3a3a3a);
+        padding: calc(var(--ui-unit, 10px) * 0.3) calc(var(--ui-unit, 10px) * 0.5);
+        font: inherit;
 }

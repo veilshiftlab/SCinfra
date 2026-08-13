@@ -1,0 +1,66 @@
+:: SettingsScript [script]
+/* =========================================================================
+ * Module: settings — SugarCube Setting definitions.
+ *
+ * Exposes user-tunable UI options in SugarCube's built-in settings dialog
+ * (opened via the Settings button). Values persist across saves and are
+ * accessible via `SugarCube.settings.foo`.
+ *
+ * Current settings:
+ *   aspectRatio   — "16:9" (default) or "4:3". Changes the shell's base
+ *                   aspect ratio. The shell re-scales to fit the viewport.
+ *   fontScale      — 0.8 to 1.4 (default 1.0). Universal font-size
+ *                   multiplier applied to all text via a CSS variable.
+ *   sceneAutoHide  — auto-hide the scene canvas when the passage is
+ *                    scrolled (default: true).
+ *
+ * When any of these change, setup.shell.applySettings() updates the shell
+ * immediately (no reload needed).
+ * ========================================================================= */
+(function () {
+        "use strict";
+
+        /* --- Aspect ratio ------------------------------------------------ */
+        Setting.addList("aspectRatio", {
+                label: "Aspect ratio",
+                desc: "Game window aspect ratio. 16:9 is widescreen (default); 4:3 is classic.",
+                list: ["16:9", "4:3"],
+                default: "16:9"
+        });
+
+        /* --- Font scale -------------------------------------------------- */
+        Setting.addRange("fontScale", {
+                label: "Font size",
+                desc: "Universal text size multiplier (0.8 = smaller, 1.0 = default, 1.4 = larger).",
+                min: 0.8,
+                max: 1.4,
+                step: 0.05,
+                default: 1.0
+        });
+
+        /* --- Scene auto-hide --------------------------------------------- */
+        Setting.addToggle("sceneAutoHide", {
+                label: "Auto-hide scene on scroll",
+                desc: "Hides the scene image when you scroll the passage down, giving more room to the text. Scroll back to top to show it again.",
+                default: true
+        });
+
+        /* --- React to settings changes ---------------------------------- *
+         * Setting.registerOnChange fires for any setting change. We re-apply
+         * the shell settings (aspect ratio, font scale, scene visibility). */
+        if (typeof Setting.registerOnChange === "function") {
+                Setting.registerOnChange(function () {
+                        if (setup.shell && setup.shell.applySettings) {
+                                setup.shell.applySettings();
+                        }
+                });
+        }
+
+        /* Also re-evaluate on dialog close (covers list/range UIs that
+         * don't fire change events until the dialog closes). */
+        $(document).on(":dialogclose.settings", function () {
+                if (setup.shell && setup.shell.applySettings) {
+                        setTimeout(setup.shell.applySettings, 0);
+                }
+        });
+})();

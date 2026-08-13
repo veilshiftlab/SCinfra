@@ -46,7 +46,7 @@ After careful review of your application and academic record, the Admissions Com
 
 In recognition of your achievements, the University is also pleased to award you a ''Full Academic Scholarship''. This scholarship will cover the full cost of tuition and mandatory university fees for the duration of your studies, subject to the University's standard academic standing requirements.
 
-We congratulate you on this accomplishment and look forward to welcoming you to the University of Oakland. Additional information regarding enrollment, housing, orientation, and course registration will be provided in the enclosed materials.
+We congratulate you on this accomplishment and look forward to welcoming you to our campus. Additional information regarding enrollment, housing, orientation, and course registration will be provided in the enclosed materials.
 
 We wish you continued success and look forward to seeing you on campus.
 
@@ -63,14 +63,14 @@ Sincerely,
 <</link>>
 
 :: drive
-<<dialog "red">>
+<<dialog "uncle">>
 "you doin alright back there big man?"<</dialog>>
 your uncle asks from the driver seat.
-<<dialog "red">>
+<<dialog "uncle">>
 "look atcha who wouldve thunk they'd pay some one who ate crayons till he was 8 to go to college."
 "full scholarship huh? don't know nobody from back in town who got one o those but good for you kid. your ma wouldve been proud"<</dialog>>
 he taps his fingers on the wheel keeping his eyes on the road.
-<<dialog "blue">>"anywho aint gotta bother about them student loans, think that's fair trade for going 2 states away for college."<</dialog>>
+<<dialog "uncle">>"anywho aint gotta bother about them student loans, think that's fair trade for going 2 states away for college."<</dialog>>
 <<link "continue" "arrival">>
 <<timeSet {minute:0, hour:7, date:8}>>
 <</link>>
@@ -85,7 +85,7 @@ you reach the university. it doesn't quite meassure up to what was in the brochu
 <</link>>
 
 :: campus
-<<sceneImage "assets\campus.png">>
+<<sceneImage "assets/campus.png">>
 the campus looks small but functioning.
 
 [[goto cafeteria|cafeteria]]
@@ -93,9 +93,11 @@ the campus looks small but functioning.
 [[go to the frontdesk|"front desk"]]
 
 :: library
-<<sceneImage "assets\library.png">>
+<<sceneImage "assets/library.png">>
 /% <<if $studentID is false>> %/
   an older woman sits at the desk supervising the establishment.
+  <<characterImage "assets/library.png" "left" "librarian">>
+  <<dialog "librarian">>"quiet please."<</dialog>>
   <<link "look for books" "shelves">><</link>>
   <<link "use the computer" "computer">><</link>>
   <<link "study" "library study">>
@@ -118,19 +120,21 @@ there isn't much to do here
 <<link "front desk" "library">><</link>>
 
 :: library study
-<<sceneImage "assets\study.png">>
+<<sceneImage "assets/study.png">>
 you spend some hours studying in the library.
 <<link "front desk" "library">><</link>>
 
 :: cafeteria
-<<sceneImage "assets\cafeteria.png">>
+<<sceneImage "assets/cafeteria.png">>
 <<link "get something to eat">>
 <<set $hunger -= 20>>
 <</link>>
 <<link "campus" "campus">><</link>>
 
 ::front desk
-<<sceneImage "assets\front_desk.png">>
+<<sceneImage "assets/front_desk.png">>
+<<characterImage "assets/front_desk.png" "right" "desk_clerk">>
  a woman is sitting at the desk eyes planted to the screen
+ <<dialog "desk_clerk">>"one moment please."<</dialog>>
 <<link "back to campus" "campus">>
 <</link>>

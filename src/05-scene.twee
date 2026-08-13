@@ -1,43 +1,241 @@
 :: SceneScript [script]
 /* =========================================================================
- * Module: scene - minimal scene canvas manager.
+ * Module: scene — pixel-perfect scene canvas manager.
  *
- * setup.scene.setImage(url) - sets background image for the scene canvas
- * setup.scene.clear() - clears the scene canvas
+ * The scene canvas is the full-width 4:1 strip at the top of the main area.
+ * It holds two kinds of layer, both passage-scoped:
  *
- * The scene canvas is the top strip in the main area, above the passage.
+ *   1. Background image  - set via setup.scene.setImage(url) or the
+ *                          <<sceneImage>> macro. Fills the canvas with
+ *                          object-fit: fill (4:1 assets at the design
+ *                          resolution are 1:1; smaller pixel-art assets
+ *                          upscale via nearest-neighbour).
+ *   2. Character layers  - set via setup.scene.addCharacter(url, opts) or
+ *                          the <<characterImage>> macro. Stacks on top of
+ *                          the background; many at once (one per call).
+ *
+ * All image layers use image-rendering: pixelated (set in ShellStyle) so
+ * pixel-art assets stay crisp at any scale — no anti-aliasing.
+ *
+ * All layers are removed automatically when the passage that placed them
+ * ends — see the :passagestart / :passageend hooks at the bottom of this
+ * file. Callers can also clear them manually:
+ *
+ *   setup.scene.clear()             - clears background + all characters
+ *   setup.scene.clearCharacters()   - clears characters only
  * ========================================================================= */
 (function () {
         "use strict";
 
         var canvasEl = null;
+        var bgImageEl = null;
+        var bgPassage = null;
+        var characterEls = [];
+
+        function getElement() {
+                if (!canvasEl) {
+                        canvasEl = document.getElementById("scene-canvas");
+                }
+                return canvasEl;
+        }
+
+        /* ------------------------------------------------------------------
+         * Path resolution helper.
+         *
+         * SugarCube's macro argument parser can interpret a bare slash as
+         * division (e.g. `assets/scenes/room.png` becomes `assets / scenes /
+         * room.png`).  We use the raw token when available so paths survive
+         * intact.  Shared by <<sceneImage>> and <<characterImage>>.
+         * ------------------------------------------------------------------ */
+        function resolveImagePath(context) {
+                var raw = context.args && context.args.raw;
+                if (typeof raw === "string" && raw.trim()) {
+                        raw = raw.trim();
+                        if ((raw.charAt(0) === '"' && raw.charAt(raw.length - 1) === '"') ||
+                                (raw.charAt(0) === "'" && raw.charAt(raw.length - 1) === "'")) {
+                                return raw.slice(1, -1);
+                        }
+                        if (context.args.length === 1 &&
+                                !/^[\$_]/.test(raw) &&
+                                (raw.indexOf("/") !== -1 || raw.indexOf("\\") !== -1)) {
+                                return raw;
+                        }
+                }
+                return String(context.args[0]);
+        }
+
+        function clearBackground() {
+                if (bgImageEl && bgImageEl.parentNode) {
+                        bgImageEl.parentNode.removeChild(bgImageEl);
+                }
+                bgImageEl = null;
+                bgPassage = null;
+        }
+
+        function clearCharacters() {
+                characterEls.forEach(function (el) {
+                        if (el.parentNode) el.parentNode.removeChild(el);
+                });
+                characterEls = [];
+        }
 
         setup.scene = {
-                getElement: function () {
-                        if (!canvasEl) {
-                                canvasEl = document.getElementById("scene-canvas");
-                        }
-                        return canvasEl;
-                },
+                getElement: getElement,
+                resolveImagePath: resolveImagePath,
 
+                /* --- Background image ------------------------------------- *
+                 * The CSS sets object-fit: fill + image-rendering: pixelated,
+                 * so we don't need any JS fit logic. We just create the <img>
+                 * and append it to the canvas. */
                 setImage: function (url) {
-                        var el = this.getElement();
-                        if (!el) return;
-                        el.style.backgroundImage = url ? 'url("' + url + '")' : "";
-                        el.style.backgroundSize = "cover";
-                        el.style.backgroundPosition = "center";
+                        var canvas = getElement();
+                        if (!canvas) return;
+                        if (bgImageEl) clearBackground();
+
+                        bgPassage = State.passage;
+
+                        bgImageEl = document.createElement("img");
+                        bgImageEl.className = "scene-canvas__image";
+                        bgImageEl.src = url;
+                        bgImageEl.alt = "";
+                        bgImageEl.setAttribute("aria-hidden", "true");
+                        canvas.appendChild(bgImageEl);
                 },
 
-                clear: function () {
-                        var el = this.getElement();
-                        if (!el) return;
-                        el.style.backgroundImage = "";
+                clearImage: function () {
+                        clearBackground();
                 },
 
                 setColor: function (color) {
-                        var el = this.getElement();
+                        var el = getElement();
                         if (!el) return;
                         el.style.backgroundColor = color || "#000";
-                }
+                },
+
+                /* --- Character layers ------------------------------------ */
+                addCharacter: function (url, options) {
+                        var canvas = getElement();
+                        if (!canvas) return null;
+
+                        options = options || {};
+                        var position = options.position || "center";
+                        var name = options.name || "";
+                        var z = options.zIndex != null ? options.zIndex : 2 + characterEls.length;
+
+                        var img = document.createElement("img");
+                        img.className = "scene-canvas__character scene-canvas__character--" + position;
+                        img.src = url;
+                        img.alt = name;
+                        img.setAttribute("data-character", name || "");
+                        img.setAttribute("data-position", position);
+                        img.style.zIndex = String(z);
+                        canvas.appendChild(img);
+                        characterEls.push(img);
+
+                        return img;
+                },
+
+                removeCharacter: function (name) {
+                        characterEls = characterEls.filter(function (el) {
+                                if (el.getAttribute("data-character") === name) {
+                                        if (el.parentNode) el.parentNode.removeChild(el);
+                                        return false;
+                                }
+                                return true;
+                        });
+                },
+
+                clearCharacters: clearCharacters,
+
+                /* --- Nuclear option -------------------------------------- */
+                clear: function () {
+                        clearBackground();
+                        clearCharacters();
+                },
+
+                /* --- Introspection --------------------------------------- */
+                getBackground: function () { return bgImageEl; },
+                getCharacters: function () { return characterEls.slice(); },
+                hasContent: function () { return !!bgImageEl || characterEls.length > 0; }
         };
+
+        /* ==================================================================
+         * Macros
+         * ================================================================== */
+
+        Macro.add("sceneImage", {
+                handler: function () {
+                        var path = resolveImagePath(this);
+                        if (!this.args.length || !path.trim()) {
+                                return this.error('usage: <<sceneImage "path/to/image.png">>');
+                        }
+                        var canvas = getElement();
+                        if (!canvas) return this.error("scene canvas not found");
+                        setup.scene.setImage(path);
+                }
+        });
+
+        /* <<characterImage "path" [position] [name]>>
+         *   position - "left" | "center" (default) | "right" | "far-left" | "far-right"
+         *   name     - optional character id (for removal / debugging)
+         *
+         * Multiple calls stack.  All layers clear when the passage ends. */
+        Macro.add("characterImage", {
+                handler: function () {
+                        var path = resolveImagePath(this);
+                        if (!this.args.length || !path.trim()) {
+                                return this.error('usage: <<characterImage "path/to/image.png" [position] [name]>>');
+                        }
+                        var canvas = getElement();
+                        if (!canvas) return this.error("scene canvas not found");
+
+                        var position = this.args[1] ? String(this.args[1]) : "center";
+                        var name = this.args[2] ? String(this.args[2]) : "";
+
+                        setup.scene.addCharacter(path, { position: position, name: name });
+                }
+        });
+
+        /* <<removeCharacter "name">> - remove one named character layer. */
+        Macro.add("removeCharacter", {
+                handler: function () {
+                        if (!this.args.length) {
+                                return this.error('usage: <<removeCharacter "name">>');
+                        }
+                        setup.scene.removeCharacter(String(this.args[0]));
+                }
+        });
+
+        /* <<clearCharacters>> - remove all character layers. */
+        Macro.add("clearCharacters", {
+                handler: function () {
+                        setup.scene.clearCharacters();
+                }
+        });
+
+        /* <<clearScene>> - remove background + all characters. */
+        Macro.add("clearScene", {
+                handler: function () {
+                        setup.scene.clear();
+                }
+        });
+
+        /* ==================================================================
+         * Passage-scoped lifecycle hooks
+         * ================================================================== */
+        function isStale() {
+                return bgPassage && bgPassage !== State.passage;
+        }
+
+        $(document)
+                .on(":passagestart.sceneCanvas", function () {
+                        if (isStale()) {
+                                setup.scene.clear();
+                        }
+                })
+                .on(":passageend.sceneCanvas", function () {
+                        if (isStale()) {
+                                setup.scene.clear();
+                        }
+                });
 })();

@@ -1,15 +1,27 @@
 :: CatalogueScript [script]
 /* =========================================================================
- * Module: catalogue - minimal item catalog.
+ * Module: catalogue - registry for the game's static data.
  *
- * setup.items.register(id, { name, description, type })
- * setup.items.get(id) - retrieve item definition
+ * The catalogue is the single source of truth for anything the macros need
+ * to look up by id.  Macros (dialog, sceneImage-adjacent helpers, future
+ * item macros, etc.) retrieve data from here instead of hardcoding values
+ * in story passages.
  *
- * This is a stripped-down catalog for the minimal skeleton.
+ * Sub-registries:
+ *   setup.items  - item definitions (existing, kept as-is)
+ *   setup.npcs   - NPC definitions: name, dialog color, portrait, etc.
+ *
+ * Each entry is a plain object so it serializes cleanly through SugarCube
+ * saves (no functions on the entries themselves — only the registry has
+ * methods).  Add new NPCs at the bottom of this file or in a downstream
+ * module by calling setup.npcs.register(...).
  * ========================================================================= */
 (function () {
         "use strict";
 
+        /* ==================================================================
+         * Items
+         * ================================================================== */
         setup.items = {
                 catalog: Object.create(null),
 
@@ -24,7 +36,90 @@
                 all: function () { return Object.keys(this.catalog); }
         };
 
-        /* Register a few basic items for the skeleton */
         setup.items.register("bread", { name: "Bread", description: "Simple food.", type: "consumable" });
         setup.items.register("water", { name: "Water", description: "Clean drinking water.", type: "consumable" });
+
+        /* ==================================================================
+         * NPCs
+         *
+         * Each NPC entry:
+         *   id         (string)  lookup key — what <<dialog "id">> uses
+         *   name       (string)  display name
+         *   color      (string)  CSS color for the dialog text
+         *   portrait   (string)  optional path to a character image, for use
+         *                        with <<characterImage $npc.portrait "left" $npc.id>>
+         *   description(string)  optional freeform notes / role
+         *   tags       (array)   optional labels like ["ally"], ["vendor"], etc.
+         *
+         * Add new speakers here.  Recoloring an NPC is a one-line change.
+         * ================================================================== */
+        setup.npcs = {
+                catalog: Object.create(null),
+
+                register: function (id, def) {
+                        if (!id) throw new Error("setup.npcs.register: id required");
+                        var base = {
+                                id: id,
+                                name: id,
+                                color: "var(--ui-text)",
+                                portrait: null,
+                                description: "",
+                                tags: []
+                        };
+                        this.catalog[id] = Object.assign(base, def || {});
+                },
+
+                get: function (id) { return this.catalog[id] || null; },
+
+                getColor: function (id) {
+                        var npc = this.catalog[id];
+                        return npc ? npc.color : null;
+                },
+
+                getPortrait: function (id) {
+                        var npc = this.catalog[id];
+                        return npc ? npc.portrait : null;
+                },
+
+                all: function () { return Object.keys(this.catalog); }
+        };
+
+        /* --- Default NPC roster ------------------------------------------
+         * Colors picked to read clearly on the dark UI background. */
+        setup.npcs.register("narrator", {
+                name: "Narrator",
+                color: "#9a9a9a",
+                description: "Off-screen narration / scene description voice."
+        });
+
+        setup.npcs.register("alex", {
+                name: "Alex",
+                color: "#4da3ff",
+                description: "The player character.",
+                tags: ["player"]
+        });
+
+        setup.npcs.register("uncle", {
+                name: "Uncle",
+                color: "#e74c3c",
+                description: "Alex's uncle, drives the truck to campus."
+        });
+
+        setup.npcs.register("dean", {
+                name: "Dean Fogekirk",
+                color: "#f1c40f",
+                description: "Dean of Admissions, University of Oakland."
+        });
+
+        setup.npcs.register("librarian", {
+                name: "Librarian",
+                color: "#9b59b6",
+                description: "Older woman supervising the library front desk."
+        });
+
+        setup.npcs.register("desk_clerk", {
+                name: "Desk Clerk",
+                color: "#1abc9c",
+                description: "Woman at the front desk, eyes planted to the screen."
+        });
 })();

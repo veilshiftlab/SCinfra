@@ -1,36 +1,47 @@
 :: PanelLeft[nobr]
 /%
-        Left sidebar — window controls + resource gauges.
+        Left sidebar — title placeholder, time, resources, actions.
 
-        Logical split (per design): the LEFT panel carries the active, managed
-        resources the player juggles every turn — stamina, stress, hunger,
-        hygiene, fatigue (progress bars), willpower (discrete pips, cap 10),
-        and money / debt (plain values). The right panel carries the avatar
-        and passive stuff (status effects, appearance).
+        Layout (top to bottom in the sidebar-body grid):
+            Time card        — top
+            Resources card   — top (grouped with Time as "game state")
+            [spacer]         — absorbs all extra space (inserted by ShellScript)
+            Actions card     — bottom (engine state)
 
-        Resources are always visible because managing them IS the game.
-        All values read from the nested $resources object (datamodal.md).
+        The 1fr spacer between Resources and Actions creates a clear
+        logical separation: game state at the top, engine controls at
+        the bottom. Time and Resources sit together; Actions is pinned
+        at the bottom edge.
+
+        Back/forward use <<uiGrid>> (two equal columns). The .ui-action
+        buttons now size via --ui-unit so they grow proportionally with
+        the base height — no more cramped look.
+
+        The title placeholder in <header> will be replaced with a game
+        title PNG later.
 %/
-<header><h1 id="story-title"><<= Story.title>></h1></header>
+<header class="sidebar-header"><h1 id="story-title"><<= Story.title>></h1></header>
 
-<<uiCard>>
+<<uiCard "Time">>
         <<uiText "clock">><<uiHour "12h">>:<<uiMinute>> <<uiAmpm>><</uiText>>
         <<uiGrid>><<uiText>><<uiDay>><</uiText>><<uiText>><<uiPhase>><</uiText>><</uiGrid>>
-        <<uiText>><<uiDate>>/<<uiMonth>>/<<uiYear>><</uiText>>
-	<<uiText>>Days <<uiDays>><</uiText>>
+        <<uiText "date">><<uiDate>>/<<uiMonth>>/<<uiYear>><</uiText>>
+        <<uiText "muted">>Day <<uiDays>><</uiText>>
 <</uiCard>>
-<<uiCard>>
+
+<<uiCard "Resources">>
         <<uiProgress "Stamina"  $resources.stamina  $resources.maxStamina  "#2ecc71">>
         <<uiProgress "Stress"   $resources.stress   $resources.maxStress   "#e67e22">>
         <<uiProgress "Hunger"   $resources.hunger   $resources.maxHunger   "#f39c12">>
         <<uiDivider>>
-        <<uiCard>><<willpowerPips>><</uiCard>>
+        <<willpowerPips>>
         <<uiGrid>>
                 <<uiValue "Money" $resources.money>>
-                <<uiValue "Debt" $resources.debt>>
+                <<uiValue "Debt"  $resources.debt>>
         <</uiGrid>>
 <</uiCard>>
-<<uiCard>>
+
+<<uiCard "Actions">>
         <<uiGrid>>
                 <<uiAction "back">>
                 <<uiAction "forward">>
