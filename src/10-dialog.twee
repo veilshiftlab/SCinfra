@@ -1,0 +1,145 @@
+:: DialogMacro [script]
+/* =========================================================================
+ * Module: dialog - colorized character dialogue.
+ * Usage: <<dialog "red">>Text, including multiple lines<</dialog>>
+ * The color argument accepts any CSS color value, such as a name or hex code.
+ * ========================================================================= */
+(function () {
+        "use strict";
+
+        function text(value) {
+                return value == null ? "" : String(value);
+        }
+
+        Macro.add("dialog", {
+                tags: [],
+                handler: function () {
+                        if (!this.args.length || !text(this.args[0]).trim()) {
+                                return this.error('usage: <<dialog "red">>text<</dialog>>');
+                        }
+
+                        var el = document.createElement("span");
+                        el.className = "dialog";
+                        el.style.color = text(this.args[0]);
+                        this.output.appendChild(el);
+
+                        if (this.payload[0] && this.payload[0].contents) {
+                                new Wikifier(el, this.payload[0].contents);
+                        }
+                }
+        });
+
+        /* =====================================================================
+         * Passage-scoped scene image.
+         * Usage: <<sceneImage "images/roommate.png">>
+         *
+         * The scene canvas is 4:1 to match the story artwork.  The image is
+         * centered and cropped whenever the viewport is not exactly 4:1:
+         * narrower canvases fit the image to height; wider canvases fit it to
+         * width.  The image is removed automatically when its passage ends.
+         * ===================================================================== */
+        var sceneImage = null;
+        var scenePassage = null;
+
+        function sceneCanvas() {
+                return document.getElementById("scene-canvas");
+        }
+
+        function sceneImagePath(context) {
+                /* SugarCube can interpret an unquoted slash as division while
+                 * parsing macro arguments.  Use the raw token when available
+                 * so paths such as assets/scenes/room.png remain intact. */
+                var raw = context.args && context.args.raw;
+                if (typeof raw === "string" && raw.trim()) {
+                        raw = raw.trim();
+                        if ((raw.charAt(0) === '"' && raw.charAt(raw.length - 1) === '"') ||
+                                (raw.charAt(0) === "'" && raw.charAt(raw.length - 1) === "'")) {
+                                return raw.slice(1, -1);
+                        }
+                        if (context.args.length === 1 &&
+                                !/^[\$_]/.test(raw) &&
+                                (raw.indexOf("/") !== -1 || raw.indexOf("\\") !== -1)) {
+                                return raw;
+                        }
+                }
+                return String(context.args[0]);
+        }
+
+        function fitSceneImage() {
+                var canvas = sceneCanvas();
+                if (!canvas || !sceneImage) return;
+
+                var canvasWidth = canvas.clientWidth;
+                var canvasHeight = canvas.clientHeight;
+                if (!canvasWidth || !canvasHeight) return;
+
+                sceneImage.style.width = "auto";
+                sceneImage.style.height = "auto";
+
+                if (canvasWidth < 4 * canvasHeight) {
+                        sceneImage.style.height = "100%";
+                } else {
+                        sceneImage.style.width = "100%";
+                }
+        }
+
+        function clearSceneImage() {
+                if (sceneImage && sceneImage.parentNode) {
+                        sceneImage.parentNode.removeChild(sceneImage);
+                }
+                sceneImage = null;
+                scenePassage = null;
+
+                var canvas = sceneCanvas();
+                if (canvas) canvas.style.height = "";
+        }
+
+        Macro.add("sceneImage", {
+                handler: function () {
+                        var imagePath = sceneImagePath(this);
+                        if (!this.args.length || !imagePath.trim()) {
+                                return this.error('usage: <<sceneImage "path/to/image.png">>');
+                        }
+
+                        var canvas = sceneCanvas();
+                        if (!canvas) return this.error("scene canvas not found");
+
+                        if (sceneImage) clearSceneImage();
+
+                        scenePassage = State.passage;
+                        canvas.style.height = "var(--scene-height)";
+                        canvas.style.position = "relative";
+                        canvas.style.overflow = "hidden";
+
+                        sceneImage = document.createElement("img");
+                        sceneImage.className = "scene-canvas__image";
+                        sceneImage.src = imagePath;
+                        sceneImage.alt = "";
+                        sceneImage.setAttribute("aria-hidden", "true");
+                        sceneImage.style.position = "absolute";
+                        sceneImage.style.left = "50%";
+                        sceneImage.style.top = "50%";
+                        sceneImage.style.transform = "translate(-50%, -50%)";
+                        sceneImage.style.maxWidth = "none";
+                        sceneImage.style.maxHeight = "none";
+                        canvas.appendChild(sceneImage);
+
+                        fitSceneImage();
+                        sceneImage.addEventListener("load", fitSceneImage, { once: true });
+                }
+        });
+
+        $(window).on("resize.dialogSceneImage", fitSceneImage);
+
+        $(document)
+                .on(":passagestart.dialogSceneImage", function () {
+                        if (scenePassage && scenePassage !== State.passage) {
+                                clearSceneImage();
+                        }
+                })
+                .on(":passageend.dialogSceneImage", function () {
+                        if (scenePassage && scenePassage !== State.passage) {
+                                clearSceneImage();
+                        }
+                });
+})();

@@ -1,0 +1,136 @@
+:: Start
+
+<style>
+.name-row {
+    display: flex;
+    gap: 0.5rem;
+}
+</style>
+main character's name
+
+<div class="name-row">
+    <label>First Name:</label>
+    <<textbox "$FName" "Alex">>
+
+    <label>Last Name:</label>
+    <<textbox "$LName" "Willson">>
+</div>
+
+
+<<link "New Game" "intro">><</link>>
+
+:: intro
+The view out the truck window is changing, getting more and more populated with neat lawns infront of generic homes and store fronts one after the other. a stark contrast from the familiar farm land you grew up with. on top of the packed bag beside you rests a letter youve already opened and read multiple time.
+<<link "read the letter" "letter">>
+<<timeAdvance "minute" 20>>
+<</link>>
+
+:: letter
+
+you open the letter.
+<span style="color: rgb(11, 29, 14);display:block;background-color:rgba(247, 247, 247, 0.93);padding:1em;width:50vw;margin: 0 auto;">
+<center>''University of Oakland''</center>
+From:
+ Dean Fogekirk
+ Office of Admissions
+ University of Oakland
+
+To:
+ $FName $LName
+
+Dear Mr. $LName,
+
+On behalf of the University of Oakland, I am pleased to inform you that you have been accepted for admission to our undergraduate program for the upcoming academic year.
+
+After careful review of your application and academic record, the Admissions Committee determined that you demonstrated exceptional potential, dedication, and promise. We believe you will make a valuable contribution to our campus community and thrive in the opportunities available here.
+
+In recognition of your achievements, the University is also pleased to award you a ''Full Academic Scholarship''. This scholarship will cover the full cost of tuition and mandatory university fees for the duration of your studies, subject to the University's standard academic standing requirements.
+
+We congratulate you on this accomplishment and look forward to welcoming you to the University of Oakland. Additional information regarding enrollment, housing, orientation, and course registration will be provided in the enclosed materials.
+
+We wish you continued success and look forward to seeing you on campus.
+
+Sincerely,
+
+ Dean Fogekirk
+ Dean of Admissions
+ University of Oakland
+
+</span>
+
+<<link "put it away" "drive">>
+<<timeAdvance "minute" 20>>
+<</link>>
+
+:: drive
+<<dialog "red">>
+"you doin alright back there big man?"<</dialog>>
+your uncle asks from the driver seat.
+<<dialog "red">>
+"look atcha who wouldve thunk they'd pay some one who ate crayons till he was 8 to go to college."
+"full scholarship huh? don't know nobody from back in town who got one o those but good for you kid. your ma wouldve been proud"<</dialog>>
+he taps his fingers on the wheel keeping his eyes on the road.
+<<dialog "blue">>"anywho aint gotta bother about them student loans, think that's fair trade for going 2 states away for college."<</dialog>>
+<<link "continue" "arrival">>
+<<timeSet {minute:0, hour:7, date:8}>>
+<</link>>
+
+:: arrival
+
+you reach the university. it doesn't quite meassure up to what was in the brochure. looks mid.
+
+<span>is this really an internationl university ? </span>
+
+<<link "look around" "campus">>
+<</link>>
+
+:: campus
+<<sceneImage "assets\campus.png">>
+the campus looks small but functioning.
+
+[[goto cafeteria|cafeteria]]
+[[goto library|library]]
+[[go to the frontdesk|"front desk"]]
+
+:: library
+<<sceneImage "assets\library.png">>
+/% <<if $studentID is false>> %/
+  an older woman sits at the desk supervising the establishment.
+  <<link "look for books" "shelves">><</link>>
+  <<link "use the computer" "computer">><</link>>
+  <<link "study" "library study">>
+    <<set $hunger += 10>>
+  <</link>>
+/% <<else>>
+you need your student ID to enter the library.
+<</if>> %/
+<<link "campus" "campus">>
+<</link>>
+
+:: shelves
+you walk through the shelevs of books
+nothing seems particularly worth reading at the moment.
+<<link "front desk" "library">><</link>>
+
+:: computer
+you spend some time browsing the web.
+there isn't much to do here
+<<link "front desk" "library">><</link>>
+
+:: library study
+<<sceneImage "assets\study.png">>
+you spend some hours studying in the library.
+<<link "front desk" "library">><</link>>
+
+:: cafeteria
+<<sceneImage "assets\cafeteria.png">>
+<<link "get something to eat">>
+<<set $hunger -= 20>>
+<</link>>
+<<link "campus" "campus">><</link>>
+
+::front desk
+<<sceneImage "assets\front_desk.png">>
+ a woman is sitting at the desk eyes planted to the screen
+<<link "back to campus" "campus">>
+<</link>>

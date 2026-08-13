@@ -1,0 +1,248 @@
+:: WidgetScript [script]
+/* =========================================================================
+ * Module: widgets - minimal display primitives.
+ * Containers: uiContainer, uiCard, uiRow
+ * Leaves: uiLabel, uiValue, uiProgress, uiDivider, uiSpacer, uiRefresh
+ * ========================================================================= */
+(function () {
+        "use strict";
+
+        if (!setup.ui || typeof setup.ui.h !== "function") {
+                console.warn("[widgets] setup.ui not ready");
+                return;
+        }
+
+        var h = setup.ui.h;
+        function txt(v) { return v == null ? "" : String(v); }
+        function num(v, fallback) { var n = Number(v); return isNaN(n) ? (fallback || 0) : n; }
+        function fmt(v) {
+                if (typeof v === "number" && !Number.isInteger(v)) return String(Math.round(v * 100) / 100);
+                return txt(v);
+        }
+        function wikifyContents(target, contents) {
+                if (contents && contents.trim()) new Wikifier(target, contents);
+        }
+        function V() { return State.variables; }
+
+        function makeContainer(config) {
+                return {
+                        tags: [],
+                        handler: function () {
+                                var el = h(config.tag, { "class": config.cls });
+                                var target = el;
+                                if (config.idArg != null) {
+                                        var id = txt(this.args[config.idArg]);
+                                        if (id) el.setAttribute("data-container", id);
+                                }
+                                if (config.titleArg != null) {
+                                        var title = txt(this.args[config.titleArg]);
+                                        if (title && config.titleTag) {
+                                                el.appendChild(h(config.titleTag, { "class": config.titleCls }, title));
+                                        }
+                                }
+                                if (config.body) {
+                                        target = h("div", { "class": config.bodyCls });
+                                        el.appendChild(target);
+                                }
+                                this.output.appendChild(el);
+                                wikifyContents(target, this.payload[0].contents);
+                        }
+                };
+        }
+
+        Macro.add("uiContainer", makeContainer({
+                tag: "section", cls: "ui-container",
+                idArg: 0, titleArg: 1, titleTag: "h3", titleCls: "ui-container__title"
+        }));
+        Macro.add("uiCard", makeContainer({
+                tag: "div", cls: "ui-card", body: true, bodyCls: "ui-card__body",
+                titleArg: 0, titleTag: "header", titleCls: "ui-card__title"
+        }));
+        Macro.add("uiRow", makeContainer({ tag: "div", cls: "ui-row" }));
+
+        Macro.add("uiLabel", {
+                handler: function () {
+                        this.output.appendChild(h("div", { "class": "ui-label", text: txt(this.args[0]) }));
+                }
+        });
+
+        Macro.add("uiValue", {
+                handler: function () {
+                        if (this.args.length < 2) return this.error("usage: <<uiValue label value [unit]>>");
+                        var unit = txt(this.args[2]);
+                        var value = h("span", { "class": "ui-value__value" }, fmt(this.args[1]));
+                        if (unit) value.appendChild(h("span", { "class": "ui-value__unit" }, unit));
+                        this.output.appendChild(
+                                h("div", { "class": "ui-row-line ui-value" },
+                                        h("span", { "class": "ui-value__label" }, txt(this.args[0])),
+                                        value)
+                        );
+                }
+        });
+
+        Macro.add("uiProgress", {
+                handler: function () {
+                        if (this.args.length < 3) return this.error("usage: <<uiProgress label value max [color]>>");
+                        var max = num(this.args[2], 100);
+                        if (max <= 0) max = 100;
+                        var val = Math.min(Math.max(num(this.args[1], 0), 0), max);
+                        var pct = Math.round((val / max) * 1000) / 10;
+                        var shown = (Math.round(val * 100) / 100) + "/" + (Math.round(max * 100) / 100);
+                        var color = (this.args.length > 3 && txt(this.args[3])) ? txt(this.args[3]) : "var(--ui-accent)";
+
+                        var el = h("div", { "class": "ui-row-line ui-progress", role: "progressbar" });
+                        el.setAttribute("aria-valuemin", "0");
+                        el.setAttribute("aria-valuemax", String(max));
+                        el.setAttribute("aria-valuenow", String(Math.round(val * 100) / 100));
+                        el.style.setProperty("--ui-progress-color", color);
+                        el.style.setProperty("--ui-progress-pct", pct + "%");
+
+                        var label = txt(this.args[0]);
+                        if (label) el.appendChild(h("span", { "class": "ui-progress__label" }, label));
+                        el.appendChild(h("span", { "class": "ui-progress__text" }, shown));
+                        this.output.appendChild(el);
+                }
+        });
+
+        Macro.add("uiDivider", {
+                handler: function () {
+                        var label = txt(this.args[0]);
+                        var el = h("div", { "class": "ui-divider", role: "separator" });
+                        if (label) el.appendChild(h("span", { "class": "ui-divider__label" }, label));
+                        this.output.appendChild(el);
+                }
+        });
+
+        Macro.add("uiSpacer", {
+                handler: function () {
+                        this.output.appendChild(h("div", { "class": "ui-spacer" }));
+                }
+        });
+
+        Macro.add("uiRefresh", {
+                handler: function () {
+                        setTimeout(function () { setup.ui.refresh(); }, 0);
+                }
+        });
+
+        Macro.add("willpowerPips", {
+                handler: function () {
+                        var v = V();
+                        var res = v.resources || {};
+                        var max = Number(res.maxWillpower) || 10;
+                        if (max < 1) max = 10;
+                        var val = Math.min(Math.max(Number(res.willpower) || 0, 0), max);
+
+                        var el = h("div", { "class": "ui-row-line wp-pips" });
+                        el.appendChild(h("span", { "class": "wp-pips__label", text: "Willpower" }));
+                        var grid = h("span", { "class": "wp-pips__grid" });
+                        for (var i = 0; i < max; i++) {
+                                grid.appendChild(h("span", {
+                                        "class": "wp-pip" + (i < val ? " is-filled" : ""),
+                                        "aria-hidden": "true"
+                                }));
+                        }
+                        el.appendChild(grid);
+                        this.output.appendChild(el);
+                }
+        });
+
+        /* =====================================================================
+        *  Extra primitives — notes, lists, stat grids, inline tags.
+        * ===================================================================== */
+
+        Macro.add("uiNote", {
+                handler: function () {
+                        this.output.appendChild(h("div", { "class": "ui-note", text: txt(this.args[0]) }));
+                }
+        });
+
+        Macro.add("uiList", {
+                tags: [],
+                handler: function () {
+                        var el = h("ul", { "class": "ui-list" });
+                        this.output.appendChild(el);
+                        wikifyContents(el, this.payload[0].contents);
+                }
+        });
+
+        Macro.add("uiItem", {
+                handler: function () {
+                        var li = h("li", { "class": "ui-list__item" });
+                        this.output.appendChild(li);
+                        wikifyContents(li, txt(this.args[0]));
+                }
+        });
+
+        Macro.add("uiGrid", {
+                tags: [],
+                handler: function () {
+                        var el = h("div", { "class": "ui-grid" });
+                        this.output.appendChild(el);
+                        wikifyContents(el, this.payload[0].contents);
+                }
+        });
+
+        Macro.add("uiStat", {
+                handler: function () {
+                        if (this.args.length < 2) return this.error("usage: <<uiStat value label>>");
+                        this.output.appendChild(
+                                h("div", { "class": "ui-stat" },
+                                        h("div", { "class": "ui-stat__value" }, fmt(this.args[0])),
+                                        h("div", { "class": "ui-stat__label" }, txt(this.args[1])))
+                        );
+                }
+        });
+
+        Macro.add("uiTag", {
+                handler: function () {
+                        var kind = txt(this.args[1]);
+                        var cls  = "ui-tag" + (kind ? " ui-tag--" + kind : "");
+                        this.output.appendChild(h("span", { "class": cls, text: txt(this.args[0]) }));
+                }
+        });
+
+        /* =====================================================================
+         *  Text styling primitives — for composing custom displays (clocks,
+         *  date lines, meta info) from leaf macros like <<uiHour>>,
+         *  <<uiDate>>, etc. without writing inline CSS.
+         *
+         *  <<uiText "variant"?>> ... <</uiText>>
+         *      Wraps wikified content in a <div class="ui-text ui-text--variant">.
+         *      Content is wikified so leaf macros work inside:
+         *        <<uiText "clock">><<uiHour "12h">>:<<uiMinute>> <<uiAmpm>><</uiText>>
+         *      If no variant is given, renders as a plain centered block.
+         *
+         *      Variants (all centered by default):
+         *        clock   large, bold, tabular-nums — for the time
+         *        date    medium, normal weight — for date strings
+         *        meta    small, uppercase, muted — for day/phase/etc.
+         *        muted   dim color, normal size
+         *        accent  accent color, normal size
+         *        bold    bold weight
+         *
+         *  <<uiCenter>> ... <</uiCenter>>
+         *      Centers its children horizontally. Use inside a <<uiCard>>
+         *      or <<uiContainer>> when you want content centered rather
+         *      than stretched. Children keep their natural width.
+         * ===================================================================== */
+        Macro.add("uiText", {
+                tags: [],
+                handler: function () {
+                        var variant = txt(this.args[0]);
+                        var cls = "ui-text" + (variant ? " ui-text--" + variant : "");
+                        var el = h("div", { "class": cls });
+                        this.output.appendChild(el);
+                        wikifyContents(el, this.payload[0].contents);
+                }
+        });
+
+        Macro.add("uiCenter", {
+                tags: [],
+                handler: function () {
+                        var el = h("div", { "class": "ui-center" });
+                        this.output.appendChild(el);
+                        wikifyContents(el, this.payload[0].contents);
+                }
+        });
+})();

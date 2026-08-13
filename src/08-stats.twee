@@ -1,0 +1,23 @@
+:: StatsScript [script]
+/* =========================================================================
+ * Module: stats - minimal stats tracking.
+ *
+ * Simple stat container for the skeleton. No complex derivations.
+ * ========================================================================= */
+(function () {
+        "use strict";
+
+        setup.stats = {
+                get: function (key) {
+                        var v = State.variables;
+                        return v.stats ? v.stats[key] : null;
+                },
+
+                set: function (key, value) {
+                        var v = State.variables;
+                        if (!v.stats) v.stats = {};
+                        v.stats[key] = value;
+                        setup.ui.refresh();
+                }
+        };
+})();

@@ -1,0 +1,40 @@
+:: ActionStyle [stylesheet]
+/* =========================================================================
+ * Action buttons (left sidebar). Icons use SugarCube's sc-icons font.
+ * Dimensions are multiples of --ui-unit so they scale with the viewport.
+ * ========================================================================= */
+.ui-action {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: calc(var(--ui-unit) * 0.875);
+        width: 100%;
+        padding: calc(var(--ui-unit) * 0.625) calc(var(--ui-unit) * 1.25);
+        box-sizing: border-box;
+        color: var(--ui-text);
+        background: transparent;
+        border: 1px solid var(--ui-border);
+        border-radius: 3px;
+        font: inherit;
+        text-transform: uppercase;
+        cursor: pointer;
+        user-select: none;
+}
+.ui-action:hover:not(:disabled) {
+        background: var(--ui-hover);
+        border-color: var(--ui-text);
+}
+.ui-action:disabled {
+        color: #555;
+        border-color: #333;
+        cursor: default;
+}
+.ui-action:focus-visible {
+        outline: 2px solid var(--ui-accent);
+        outline-offset: 1px;
+}
+.ui-action__icon {
+        width: 1em;
+        line-height: 1;
+        font-style: normal;
+}

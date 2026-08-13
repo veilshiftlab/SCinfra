@@ -1,0 +1,30 @@
+:: CatalogueScript [script]
+/* =========================================================================
+ * Module: catalogue - minimal item catalog.
+ *
+ * setup.items.register(id, { name, description, type })
+ * setup.items.get(id) - retrieve item definition
+ *
+ * This is a stripped-down catalog for the minimal skeleton.
+ * ========================================================================= */
+(function () {
+        "use strict";
+
+        setup.items = {
+                catalog: Object.create(null),
+
+                register: function (id, def) {
+                        if (!id) throw new Error("setup.items.register: id required");
+                        var base = { id: id, name: id, description: "", type: "misc" };
+                        this.catalog[id] = Object.assign(base, def || {});
+                },
+
+                get: function (id) { return this.catalog[id] || null; },
+
+                all: function () { return Object.keys(this.catalog); }
+        };
+
+        /* Register a few basic items for the skeleton */
+        setup.items.register("bread", { name: "Bread", description: "Simple food.", type: "consumable" });
+        setup.items.register("water", { name: "Water", description: "Clean drinking water.", type: "consumable" });
+})();

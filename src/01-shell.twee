@@ -1,0 +1,91 @@
+:: StoryInterface
+<div id="app-shell" class="app-shell">
+        <!-- Left sidebar: controls + info widgets -->
+        <aside id="left-sidebar" class="sidebar" data-passage="PanelLeft"></aside>
+
+        <!-- Main area: scene canvas + story content -->
+        <main id="main-area" class="main-area">
+                <div id="scene-canvas" class="scene-canvas"></div>
+                <div id="passages" class="story-content"></div>
+        </main>
+</div>
+
+:: ShellStyle [stylesheet]
+/* =========================================================================
+ * Minimal Shell — 3 sections: left panel, scene, passage.
+ * No right sidebar, no floating window, no avatar.
+ * ========================================================================= */
+:root {
+        --ui-unit: max(5px, min(calc(100vw / 40), calc(100vh / 80), 12px));
+        --left-sidebar-width: calc(var(--ui-unit) * 25);
+        --scene-height: 25vh;
+        --sidebar-pad: calc(var(--ui-unit) * 1);
+        --story-pad: calc(var(--ui-unit) * 1.5);
+
+        --ui-bg:        #222;
+        --ui-bg-raised: #2b2b2b;
+        --ui-border:    #444;
+        --ui-text:      #eee;
+        --ui-text-dim:  #aaa;
+        --ui-accent:    #4da3ff;
+}
+
+html, body {
+        height: 100%;
+        margin: 0;
+        overflow: hidden;
+}
+
+.app-shell {
+        display: grid;
+        grid-template-columns: var(--left-sidebar-width) 1fr;
+        height: 100vh;
+}
+
+.sidebar {
+        box-sizing: border-box;
+        overflow-y: auto;
+        padding: var(--sidebar-pad);
+        background: var(--ui-bg);
+        color: var(--ui-text);
+        display: flex;
+        flex-direction: column;
+        gap: calc(var(--ui-unit) * 0.75);
+        border-right: 1px solid var(--ui-border);
+}
+
+.main-area {
+        position: relative;
+        display: flex;
+        flex-direction: column;
+        min-width: 0;
+        overflow: hidden;
+}
+
+.scene-canvas {
+    position: relative;
+    overflow: hidden;
+    border-bottom: 1px solid var(--ui-border);
+    background: #000;
+
+    max-height: var(--scene-height);
+}
+
+.scene-canvas:empty {
+    display: none;
+}
+
+.story-content {
+        flex: 1 1 auto;
+        overflow-y: auto;
+        padding: var(--story-pad);
+        box-sizing: border-box;
+}
+
+#passages .passage {
+        background: var(--ui-bg);
+        border: 1px solid var(--ui-border);
+        border-radius: 4px;
+        padding: calc(var(--ui-unit) * 1.5);
+        margin: 0;
+}

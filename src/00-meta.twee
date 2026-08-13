@@ -1,0 +1,11 @@
+:: StoryTitle
+roommate
+
+:: StoryData
+{
+  "ifid": "572B8CE6-36C0-4FF6-AE01-0AD650F08374",
+  "format": "SugarCube",
+  "format-version": "2.37.3",
+  "start": "Start",
+  "zoom": 1
+}

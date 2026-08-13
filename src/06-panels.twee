@@ -1,0 +1,41 @@
+:: PanelLeft[nobr]
+/%
+        Left sidebar — window controls + resource gauges.
+
+        Logical split (per design): the LEFT panel carries the active, managed
+        resources the player juggles every turn — stamina, stress, hunger,
+        hygiene, fatigue (progress bars), willpower (discrete pips, cap 10),
+        and money / debt (plain values). The right panel carries the avatar
+        and passive stuff (status effects, appearance).
+
+        Resources are always visible because managing them IS the game.
+        All values read from the nested $resources object (datamodal.md).
+%/
+<header><h1 id="story-title"><<= Story.title>></h1></header>
+
+<<uiCard>>
+        <<uiText "clock">><<uiHour "12h">>:<<uiMinute>> <<uiAmpm>><</uiText>>
+        <<uiGrid>><<uiText>><<uiDay>><</uiText>><<uiText>><<uiPhase>><</uiText>><</uiGrid>>
+        <<uiText>><<uiDate>>/<<uiMonth>>/<<uiYear>><</uiText>>
+	<<uiText>>Days <<uiDays>><</uiText>>
+<</uiCard>>
+<<uiCard>>
+        <<uiProgress "Stamina"  $resources.stamina  $resources.maxStamina  "#2ecc71">>
+        <<uiProgress "Stress"   $resources.stress   $resources.maxStress   "#e67e22">>
+        <<uiProgress "Hunger"   $resources.hunger   $resources.maxHunger   "#f39c12">>
+        <<uiDivider>>
+        <<uiCard>><<willpowerPips>><</uiCard>>
+        <<uiGrid>>
+                <<uiValue "Money" $resources.money>>
+                <<uiValue "Debt" $resources.debt>>
+        <</uiGrid>>
+<</uiCard>>
+<<uiCard>>
+        <<uiGrid>>
+                <<uiAction "back">>
+                <<uiAction "forward">>
+        <</uiGrid>>
+        <<uiAction "saves">>
+        <<uiAction "settings">>
+        <<uiAction "restart">>
+<</uiCard>>

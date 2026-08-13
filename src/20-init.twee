@@ -1,0 +1,34 @@
+:: StoryInit
+/%
+════════════════════════════════════════════════════════════════════
+STORYINIT - MINIMAL STATE TEMPLATE
+════════════════════════════════════════════════════════════════════
+This initializes the player's state for the minimal skeleton.
+Only essential stats and resources - no inventory, quests, or complex systems.
+═════════════════════════════════════════════════════════════════════
+%/
+
+/* Character stats */
+<<set $time = {minute:0, hour:20, date:7, day:3, days:0, month:5, year:2020}>>
+<<set $stats = {
+        str: 5,
+        dex: 5,
+        con: 5
+}>>
+
+/* Resources - consumable currencies */
+<<set $resources = {
+        stamina: 100,
+        maxStamina: 100,
+        stress: 0,
+        maxStress: 100,
+        hunger: 0,
+        maxHunger: 100,
+        money: 50,
+        willpower:0,
+        axWillpower:10
+}>>
+
+/* Simple flags for story progress */
+<<set $flags = {}>>
+

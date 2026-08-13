@@ -1,0 +1,17 @@
+{
+  "format": "SugarCube",
+  "build": {
+    "source_dir": "src",
+    "output_dir": "build"
+  },
+  "compiler": {
+    "path": "",
+    "args": []
+  },
+  "diagnostics": {
+    "broken-link": "warning",
+    "unreachable-passage": "hint",
+    "uninitialized-variable": "warning",
+    "unused-variable": "hint"
+  }
+}

@@ -1,0 +1,40 @@
+:: CoreScript [script]
+/* =========================================================================
+ * Module: core - minimal foundation.
+ * ========================================================================= */
+(function () {
+        "use strict";
+
+        if (typeof setup === "undefined") {
+                throw new Error("[core] SugarCube's setup object is not available");
+        }
+        window.setup = setup;
+
+        function h(tag, attrs) {
+                var el = document.createElement(tag);
+                if (attrs) {
+                        Object.keys(attrs).forEach(function (k) {
+                                var v = attrs[k];
+                                if (v == null) return;
+                                if (k === "class") el.className = v;
+                                else if (k === "text") el.textContent = v;
+                                else if (k === "id") el.id = v;
+                                else el.setAttribute(k, String(v));
+                        });
+                }
+                for (var i = 2; i < arguments.length; i++) {
+                        var c = arguments[i];
+                        if (c == null) continue;
+                        el.appendChild(c.nodeType ? c : document.createTextNode(String(c)));
+                }
+                return el;
+        }
+
+        setup.ui = {
+                version: "1.0.0",
+                h: h,
+                refresh: function () {
+                        try { UI.update(); } catch (ex) { console.error("[ui] refresh failed:", ex); }
+                }
+        };
+})();

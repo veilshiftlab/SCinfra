@@ -1,0 +1,43 @@
+:: SceneScript [script]
+/* =========================================================================
+ * Module: scene - minimal scene canvas manager.
+ *
+ * setup.scene.setImage(url) - sets background image for the scene canvas
+ * setup.scene.clear() - clears the scene canvas
+ *
+ * The scene canvas is the top strip in the main area, above the passage.
+ * ========================================================================= */
+(function () {
+        "use strict";
+
+        var canvasEl = null;
+
+        setup.scene = {
+                getElement: function () {
+                        if (!canvasEl) {
+                                canvasEl = document.getElementById("scene-canvas");
+                        }
+                        return canvasEl;
+                },
+
+                setImage: function (url) {
+                        var el = this.getElement();
+                        if (!el) return;
+                        el.style.backgroundImage = url ? 'url("' + url + '")' : "";
+                        el.style.backgroundSize = "cover";
+                        el.style.backgroundPosition = "center";
+                },
+
+                clear: function () {
+                        var el = this.getElement();
+                        if (!el) return;
+                        el.style.backgroundImage = "";
+                },
+
+                setColor: function (color) {
+                        var el = this.getElement();
+                        if (!el) return;
+                        el.style.backgroundColor = color || "#000";
+                }
+        };
+})();
