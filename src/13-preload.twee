@@ -1,0 +1,67 @@
+:: PreloadScript [script]
+/* =========================================================================
+ * Module: preload — eager-loads image assets so first-visit scene changes
+ * and character appearances don't flash.
+ *
+ * Usage:
+ *   setup.preload.images(["assets/campus.png", "assets/library.png", ...]);
+ *       Preload an explicit list of image paths.
+ *
+ *   setup.preload.npcPortraits();
+ *       Scan setup.npcs and preload every NPC's `portrait` field.
+ *
+ *   setup.preload.all();
+ *       Convenience: preloads NPC portraits + any images passed in.
+ *
+ * Images are loaded into Image() objects and discarded — the browser
+ * caches them. Subsequent <img> tags with the same src render instantly.
+ *
+ * Call this from StoryInit (20-init.twee) or the Start passage. For a
+ * small pixel-art asset set, loading everything upfront is cheap and
+ * eliminates first-visit flashes entirely.
+ * ========================================================================= */
+(function () {
+        "use strict";
+
+        var cache = Object.create(null);
+
+        function loadImage(src) {
+                if (!src || cache[src]) return;
+                cache[src] = true;
+                var img = new Image();
+                img.src = src;
+                /* The Image object is discarded once the browser caches it.
+                 * We don't need to wait for onload — the cache is populated
+                 * asynchronously and subsequent <img> tags will hit it. */
+        }
+
+        setup.preload = {
+                images: function (paths) {
+                        if (!paths) return;
+                        if (!Array.isArray(paths)) paths = [paths];
+                        paths.forEach(loadImage);
+                        return this;
+                },
+
+                npcPortraits: function () {
+                        if (!setup.npcs || !setup.npcs.catalog) return this;
+                        Object.keys(setup.npcs.catalog).forEach(function (id) {
+                                var npc = setup.npcs.catalog[id];
+                                if (npc.portrait) loadImage(npc.portrait);
+                        });
+                        return this;
+                },
+
+                all: function (extraPaths) {
+                        this.npcPortraits();
+                        if (extraPaths) this.images(extraPaths);
+                        return this;
+                },
+
+                /* Introspection — returns the list of paths that have been
+                 * queued for preload. Useful for debugging. */
+                queued: function () {
+                        return Object.keys(cache);
+                }
+        };
+})();

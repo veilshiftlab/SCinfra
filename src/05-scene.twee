@@ -64,6 +64,28 @@
                 return String(context.args[0]);
         }
 
+        /* --- Position distribution for multi-character scenes ----------- *
+         * Returns {name, left?} where name is a CSS class suffix
+         * ("left", "center", "right", "custom") and left is an inline
+         * left% for 4+ characters (null for 1-3, which use CSS classes).
+         *
+         *   1 char  → center
+         *   2 chars → left, right
+         *   3 chars → left, center, right
+         *   4+ chars → evenly spaced: left = 10% + (i/(n-1))*80%, centered
+         *              via translateX(-50%). 10% side margins prevent edge
+         *              clipping. */
+        function distributePosition(i, n) {
+                if (n <= 1) return { name: "center" };
+                if (n === 2) return { name: i === 0 ? "left" : "right" };
+                if (n === 3) {
+                        return { name: i === 0 ? "left" : i === 1 ? "center" : "right" };
+                }
+                /* 4+: even distribution with 10% margins. */
+                var pct = 10 + (i / (n - 1)) * 80;
+                return { name: "custom", left: pct + "%" };
+        }
+
         function clearBackground() {
                 if (bgImageEl && bgImageEl.parentNode) {
                         bgImageEl.parentNode.removeChild(bgImageEl);
@@ -121,6 +143,7 @@
                         var position = options.position || "center";
                         var name = options.name || "";
                         var z = options.zIndex != null ? options.zIndex : 2 + characterEls.length;
+                        var maxWidth = options.maxWidth || null;
 
                         var img = document.createElement("img");
                         img.className = "scene-canvas__character scene-canvas__character--" + position;
@@ -129,10 +152,61 @@
                         img.setAttribute("data-character", name || "");
                         img.setAttribute("data-position", position);
                         img.style.zIndex = String(z);
+                        if (maxWidth) img.style.maxWidth = maxWidth;
                         canvas.appendChild(img);
                         characterEls.push(img);
 
                         return img;
+                },
+
+                /* --- Multi-character batch add --------------------------- *
+                 * addCharacters([{id, portrait, name}, ...]) — clears existing
+                 * characters first, then adds all from the list with
+                 * auto-distributed positions. Returns the array of created
+                 * img elements.
+                 *
+                 * Position distribution:
+                 *   1  → center
+                 *   2  → left, right
+                 *   3  → left, center, right
+                 *   4+ → evenly spaced with 10% side margins (inline left %)
+                 *
+                 * Max-width per character scales with count so portraits
+                 * don't overlap: ~60% for 1, ~45% for 2, ~30% for 3, ~20%
+                 * for 4+, with small gaps. */
+                addCharacters: function (chars) {
+                        var canvas = getElement();
+                        if (!canvas) return [];
+
+                        clearCharacters();
+                        if (!chars || !chars.length) return [];
+
+                        var n = chars.length;
+                        var maxWidth;
+                        if (n <= 1) maxWidth = "60%";
+                        else if (n === 2) maxWidth = "45%";
+                        else if (n === 3) maxWidth = "32%";
+                        else maxWidth = Math.floor(80 / n) + "%";
+
+                        var created = [];
+                        for (var i = 0; i < n; i++) {
+                                var c = chars[i];
+                                var pos = distributePosition(i, n);
+                                var img = this.addCharacter(c.portrait, {
+                                        position: pos.name,
+                                        name: c.id,
+                                        maxWidth: maxWidth
+                                });
+                                /* For 4+ characters, distributePosition returns
+                                 * a custom left% — apply it as an inline style. */
+                                if (pos.left != null) {
+                                        img.style.left = pos.left;
+                                        img.style.right = "auto";
+                                        img.style.transform = "translateX(-50%)";
+                                }
+                                created.push(img);
+                        }
+                        return created;
                 },
 
                 removeCharacter: function (name) {
@@ -179,7 +253,9 @@
          *   position - "left" | "center" (default) | "right" | "far-left" | "far-right"
          *   name     - optional character id (for removal / debugging)
          *
-         * Multiple calls stack.  All layers clear when the passage ends. */
+         * Multiple calls stack.  All layers clear when the passage ends.
+         * Use this for explicit single-character control. For multi-character
+         * scenes, use <<characters>> instead. */
         Macro.add("characterImage", {
                 handler: function () {
                         var path = resolveImagePath(this);
@@ -193,6 +269,64 @@
                         var name = this.args[2] ? String(this.args[2]) : "";
 
                         setup.scene.addCharacter(path, { position: position, name: name });
+                }
+        });
+
+        /* <<characters "npc1" "npc2" "npc3" ...>>
+         *
+         * Adds multiple character portraits to the scene canvas in a single
+         * call. Each argument is an NPC id (looked up in setup.npcs). The
+         * portrait path comes from the NPC's `portrait` field in the catalog.
+         *
+         * Positions are auto-distributed based on count:
+         *   1  → center
+         *   2  → left, right
+         *   3  → left, center, right
+         *   4+ → evenly spaced with 10% side margins
+         *
+         * Max-width per portrait scales with count so they don't overlap.
+         * Existing characters are cleared first (idempotent).
+         *
+         * Example:
+         *   <<characters "uncle" "librarian">>
+         *   <<characters "dean">>
+         *
+         * To register a portrait for an NPC, set the `portrait` field in
+         * 07-catalogue.twee:
+         *   setup.npcs.register("uncle", {
+         *       name: "Uncle",
+         *       color: "#e74c3c",
+         *       portrait: "assets/characters/uncle.png"
+         *   }); */
+        Macro.add("characters", {
+                handler: function () {
+                        if (!this.args.length) {
+                                return this.error('usage: <<characters "npc1" "npc2" ...>>');
+                        }
+                        var canvas = getElement();
+                        if (!canvas) return this.error("scene canvas not found");
+
+                        var chars = [];
+                        for (var i = 0; i < this.args.length; i++) {
+                                var id = String(this.args[i]).trim();
+                                var npc = setup.npcs.get(id);
+                                if (!npc) {
+                                        return this.error(
+                                                'unknown NPC "' + id + '" — register it via ' +
+                                                'setup.npcs.register("' + id + '", {...})'
+                                        );
+                                }
+                                if (!npc.portrait) {
+                                        return this.error(
+                                                'NPC "' + id + '" has no portrait — set the ' +
+                                                '`portrait` field in setup.npcs.register("' + id + '", ' +
+                                                '{portrait: "assets/characters/' + id + '.png"})'
+                                        );
+                                }
+                                chars.push({ id: id, portrait: npc.portrait, name: npc.name });
+                        }
+
+                        setup.scene.addCharacters(chars);
                 }
         });
 

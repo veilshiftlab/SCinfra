@@ -9,4 +9,11 @@
     margin: 0 0 0.6em;
 }
 
+/* NPC names in prose — rendered by <<name "npc_id">>. Bold so they stand
+ * out from the surrounding narration. Color is set inline by the macro
+ * (sourced from the NPC catalog). */
+.npc-name {
+    font-weight: bold;
+}
+
 /* Dialog span links inherit color and stay inline — handled in ShellStyle. */

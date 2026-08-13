@@ -45,6 +45,14 @@
                 default: true
         });
 
+        /* --- Passage transition speed ----------------------------------- */
+        Setting.addList("transitionSpeed", {
+                label: "Passage transitions",
+                desc: "Animation when moving between passages. Instant = no animation; Fast = 120ms fade; Slow = 300ms fade.",
+                list: ["Instant", "Fast", "Slow"],
+                default: "Fast"
+        });
+
         /* --- React to settings changes ---------------------------------- *
          * Setting.registerOnChange fires for any setting change. We re-apply
          * the shell settings (aspect ratio, font scale, scene visibility). */

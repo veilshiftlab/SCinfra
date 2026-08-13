@@ -32,3 +32,15 @@ Only essential stats and resources - no inventory, quests, or complex systems.
 /* Simple flags for story progress */
 <<set $flags = {}>>
 
+/* Preload all scene images + NPC portraits so first-visit navigation
+ * doesn't flash. The asset set is small (pixel art), so loading
+ * everything upfront is cheap. Add new scene paths here as you create
+ * them. */
+<<run setup.preload.all([
+        "assets/campus.png",
+        "assets/library.png",
+        "assets/cafeteria.png",
+        "assets/study.png",
+        "assets/front_desk.png"
+])>>
+

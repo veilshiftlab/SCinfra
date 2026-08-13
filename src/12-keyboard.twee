@@ -1,0 +1,104 @@
+:: KeyboardScript [script]
+/* =========================================================================
+ * Module: keyboard — global keyboard shortcuts.
+ *
+ * Shortcuts:
+ *   1-9          Activate the Nth passage link (choice buttons).
+ *   Escape       Close any open SugarCube dialog (saves, settings, etc.).
+ *   Backspace    Engine backward (same as the Back action button).
+ *
+ * Number-key shortcuts only fire on passage links (.link-internal inside
+ * #passages .passage), never on sidebar buttons or dialog links. This
+ * matches the Twine convention: number keys pick choices.
+ *
+ * Shortcuts are disabled while a text input, textarea, or contenteditable
+ * element has focus (so typing in the name fields on Start doesn't
+ * trigger link activation).
+ * ========================================================================= */
+(function () {
+        "use strict";
+
+        function isTypingTarget(el) {
+                if (!el) return false;
+                var tag = el.tagName;
+                if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return true;
+                if (el.isContentEditable) return true;
+                return false;
+        }
+
+        function getPassageLinks() {
+                var passages = document.getElementById("passages");
+                if (!passages) return [];
+                var links = passages.querySelectorAll(".passage a.link-internal, .passage a.link-external");
+                return Array.prototype.slice.call(links);
+        }
+
+        function closeTopDialog() {
+                try {
+                        if (SugarCube.Dialog && SugarCube.Dialog.isOpen && SugarCube.Dialog.isOpen()) {
+                                SugarCube.Dialog.close();
+                                return true;
+                        }
+                } catch (e) {}
+                return false;
+        }
+
+        function engineBackward() {
+                try { SugarCube.Engine.backward(); } catch (e) {}
+        }
+
+        $(document).on("keydown.shortcuts", function (ev) {
+                /* Never intercept modifier-chorded keys — those belong to the
+                 * browser and OS. */
+                if (ev.ctrlKey || ev.metaKey || ev.altKey) return;
+
+                var active = document.activeElement;
+                if (isTypingTarget(active)) return;
+
+                /* Escape — close dialog. */
+                if (ev.key === "Escape") {
+                        if (closeTopDialog()) {
+                                ev.preventDefault();
+                                return;
+                        }
+                        return;
+                }
+
+                /* Backspace — engine backward (only when no dialog is open
+                 * and not over a text input). */
+                if (ev.key === "Backspace") {
+                        /* Don't hijack if a dialog is open — let it close
+                         * naturally or do nothing. */
+                        try {
+                                if (SugarCube.Dialog && SugarCube.Dialog.isOpen && SugarCube.Dialog.isOpen()) return;
+                        } catch (e) {}
+                        /* Only go back if there's history. */
+                        try {
+                                if (SugarCube.State.length < 2) return;
+                        } catch (e) { return; }
+                        engineBackward();
+                        ev.preventDefault();
+                        return;
+                }
+
+                /* 1-9 — activate the Nth passage link. */
+                if (ev.key >= "1" && ev.key <= "9") {
+                        var n = parseInt(ev.key, 10);
+                        var links = getPassageLinks();
+                        if (n >= 1 && n <= links.length) {
+                                var link = links[n - 1];
+                                /* Focus then click, so the link's own focus
+                                 * styling fires and screen readers announce
+                                 * the action. */
+                                link.focus();
+                                link.click();
+                                ev.preventDefault();
+                                return;
+                        }
+                }
+        });
+
+        setup.keyboard = {
+                getPassageLinks: getPassageLinks
+        };
+})();

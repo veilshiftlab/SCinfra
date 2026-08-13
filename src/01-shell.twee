@@ -72,6 +72,28 @@
         --font-size-prose: calc(16px * var(--font-scale));
         --font-size-ui: calc(14px * var(--font-scale));
 
+        /* --- Elevation system (4 depth levels) ----------------------------
+         *   z0: base shell background (no shadow)
+         *   z1: raised surfaces (cards, buttons, input fields)
+         *   z2: hover/focus states, sticky elements
+         *   z3: overlays (dialog, dropdown menus, toasts)
+         * Shadows use the shell's own dark palette so they read as depth,
+         * not as glow. */
+        --shadow-z0: none;
+        --shadow-z1: 0 1px 3px rgba(0, 0, 0, 0.4), 0 1px 2px rgba(0, 0, 0, 0.3);
+        --shadow-z2: 0 2px 8px rgba(0, 0, 0, 0.5), 0 1px 3px rgba(0, 0, 0, 0.4);
+        --shadow-z3: 0 8px 24px rgba(0, 0, 0, 0.6), 0 2px 6px rgba(0, 0, 0, 0.5);
+
+        /* Prose line length — caps the readable column width. Links inherit
+         * the same max-width so the whole passage block reads as one column.
+         * 60em fills more of the passage area without being uncomfortable
+         * to read. */
+        --prose-max-width: 60em;
+
+        /* Passage transition duration. Overridden by JS based on the
+         * transitionSpeed setting (instant/fast/slow). */
+        --transition-duration: 0ms;
+
         --ui-bg:        #1c1c1c;
         --ui-bg-raised: #242424;
         --ui-bg-inset:  #181818;
@@ -223,6 +245,15 @@ html, body {
         user-select: none;
 }
 
+/* --- Character layers ------------------------------------------------ *
+ * Portraits are transparent PNGs, bottom-aligned, filling the canvas
+ * height. Width follows from the portrait's aspect ratio. Max-width
+ * caps horizontal space; the <<characters>> macro sets a tighter
+ * max-width per portrait based on how many are on screen.
+ *
+ * object-fit: contain ensures the portrait never distorts — it scales
+ * to fill the height, and if the max-width cap kicks in, it scales
+ * down to fit within both constraints (preserving aspect ratio). */
 .scene-canvas__character {
         position: absolute;
         bottom: 0;
@@ -233,13 +264,16 @@ html, body {
         pointer-events: none;
         user-select: none;
         object-fit: contain;
-        object-position: bottom;
+        object-position: bottom center;
 }
 .scene-canvas__character--left   { left: 0;    transform: none; }
 .scene-canvas__character--center { left: 50%;  transform: translateX(-50%); }
 .scene-canvas__character--right  { right: 0;   transform: none; }
 .scene-canvas__character--far-left  { left: 0;    transform: translateX(-25%); }
 .scene-canvas__character--far-right { right: 0;   transform: translateX(25%); }
+/* --custom: position set via inline left%/transform by the <<characters>>
+ * macro for 4+ character scenes. No CSS positioning needed here. */
+.scene-canvas__character--custom { /* inline styles */ }
 
 /* --- Story content (passage area) ----------------------------------- */
 .story-content {
@@ -264,12 +298,30 @@ html, body {
         scroll-behavior: smooth;
 }
 
+/* Passage content is constrained to a readable column width. Links
+ * inherit the same max-width so they don't stretch past the text column.
+ * The column is centered horizontally within the passage area. */
 #passages .passage {
         background: transparent;
         border: 0;
         border-radius: 0;
         padding: 0;
-        margin: 0;
+        margin: 0 auto;
+        max-width: var(--prose-max-width);
+        /* Passage transition: fade in. Duration set by --transition-duration
+         * (0ms = instant). animation-fill-mode: forwards ensures the element
+         * always ends at opacity:1 even if the animation is interrupted.
+         * The element's default opacity is 1 (set explicitly here) so if the
+         * animation doesn't run (0ms duration, reduced motion), text is
+         * fully visible immediately. */
+        opacity: 1;
+        animation: passage-fade-in var(--transition-duration) ease-out;
+        animation-fill-mode: forwards;
+}
+
+@keyframes passage-fade-in {
+        from { opacity: 0; }
+        to   { opacity: 1; }
 }
 
 /* --- In-passage links (block buttons) ------------------------------- */
@@ -292,16 +344,19 @@ html, body {
         line-height: 1.4;
         text-align: left;
         margin-bottom: calc(var(--ui-unit) * 0.4);
-        transition: background 0.12s ease, border-color 0.12s ease;
+        box-shadow: var(--shadow-z1);
+        transition: background 0.12s ease, border-color 0.12s ease, box-shadow 0.12s ease;
 }
 #passages .passage a.link-internal:hover,
 #passages .passage a.link-external:hover {
         background: var(--ui-hover);
         border-color: var(--ui-text-dim);
+        box-shadow: var(--shadow-z2);
 }
 #passages .passage a.link-internal:active,
 #passages .passage a.link-external:active {
         transform: translateY(1px);
+        box-shadow: var(--shadow-z1);
 }
 
 #passages .passage .dialog a.link-internal,
@@ -409,6 +464,7 @@ html, body {
         color: var(--ui-text, #e8e8e8);
         font-family: var(--font-family, sans-serif);
         font-size: calc(14px * var(--font-scale, 1));
+        box-shadow: var(--shadow-z3, 0 8px 24px rgba(0,0,0,0.6));
 }
 
 #ui-dialog-titlebar {
@@ -465,4 +521,27 @@ html, body {
         border: 1px solid var(--ui-border, #3a3a3a);
         padding: calc(var(--ui-unit, 10px) * 0.3) calc(var(--ui-unit, 10px) * 0.5);
         font: inherit;
+}
+
+/* =========================================================================
+ * Reduced motion — when the OS reports prefers-reduced-motion: reduce,
+ * disable all transitions and animations. The JS also forces
+ * --transition-duration to 0ms; this CSS block is a belt-and-braces
+ * fallback that catches the scene-hide transition and any other
+ * animation not driven by the CSS variable.
+ * ========================================================================= */
+@media (prefers-reduced-motion: reduce) {
+        .scene-canvas {
+                transition: none !important;
+        }
+        #passages .passage {
+                animation: none !important;
+        }
+        #passages .passage a.link-internal,
+        #passages .passage a.link-external {
+                transition: none !important;
+        }
+        .ui-action {
+                transition: none !important;
+        }
 }

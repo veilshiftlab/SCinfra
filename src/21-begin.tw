@@ -28,7 +28,7 @@ The view out the truck window is changing, getting more and more populated with 
 :: letter
 
 you open the letter.
-<span style="color: rgb(11, 29, 14);display:block;background-color:rgba(247, 247, 247, 0.93);padding:1em;width:50vw;margin: 0 auto;">
+<span style="color: rgb(11, 29, 14);display:block;background-color:rgba(247, 247, 247, 0.93);padding:1em;width:80%;margin: 1em auto;">
 <center>''University of Oakland''</center>
 From:
  Dean Fogekirk
@@ -65,7 +65,7 @@ Sincerely,
 :: drive
 <<dialog "uncle">>
 "you doin alright back there big man?"<</dialog>>
-your uncle asks from the driver seat.
+<<name "uncle">> asks from the driver seat.
 <<dialog "uncle">>
 "look atcha who wouldve thunk they'd pay some one who ate crayons till he was 8 to go to college."
 "full scholarship huh? don't know nobody from back in town who got one o those but good for you kid. your ma wouldve been proud"<</dialog>>
@@ -95,8 +95,8 @@ the campus looks small but functioning.
 :: library
 <<sceneImage "assets/library.png">>
 /% <<if $studentID is false>> %/
-  an older woman sits at the desk supervising the establishment.
-  <<characterImage "assets/library.png" "left" "librarian">>
+  <<name "librarian">> sits at the desk supervising the establishment.
+  <<characters "librarian">>
   <<dialog "librarian">>"quiet please."<</dialog>>
   <<link "look for books" "shelves">><</link>>
   <<link "use the computer" "computer">><</link>>
@@ -133,7 +133,7 @@ you spend some hours studying in the library.
 
 ::front desk
 <<sceneImage "assets/front_desk.png">>
-<<characterImage "assets/front_desk.png" "right" "desk_clerk">>
+<<characters "desk_clerk">>
  a woman is sitting at the desk eyes planted to the screen
  <<dialog "desk_clerk">>"one moment please."<</dialog>>
 <<link "back to campus" "campus">>

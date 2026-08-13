@@ -1,0 +1,53 @@
+:: SaveMetadataScript [script]
+/* =========================================================================
+ * Module: saveMetadata — enriches save slots with passage title + game time
+ * so the Saves dialog shows useful context instead of just "Turn N".
+ *
+ * Uses SugarCube's Config.saves.descriptions API: a function that receives
+ * the save type and returns a description string. SugarCube calls this when
+ * a save is created and stores the result as the slot's `desc` field, which
+ * renders in the Saves dialog.
+ *
+ * Description format: "Passage Title — DD/MM/YYYY HH:MM"
+ * (game time from $time if available, falls back to passage title only).
+ *
+ * Config.saves.descriptions is set in a preinit passage tag so it runs
+ * before SugarCube's save system initializes. This module file has the
+ * [script] tag; the Config assignment runs at script-eval time, which is
+ * early enough.
+ * ========================================================================= */
+(function () {
+        "use strict";
+
+        function buildDescription() {
+                var title = "";
+                try { title = SugarCube.State.passage || ""; } catch (e) {}
+                if (!title) title = "Unknown passage";
+
+                var gameTime = "";
+                try {
+                        var t = SugarCube.State.variables.time;
+                        if (t) {
+                                var h = String(t.hour).padStart(2, "0");
+                                var m = String(t.minute).padStart(2, "0");
+                                var date = String(t.date).padStart(2, "0");
+                                var month = String(t.month).padStart(2, "0");
+                                gameTime = date + "/" + month + "/" + t.year + " " + h + ":" + m;
+                        }
+                } catch (e) {}
+
+                return gameTime ? title + " — " + gameTime : title;
+        }
+
+        /* Config.saves.descriptions: a function that receives the save type
+         * ("autosave" or "slot") and returns a description string. */
+        if (typeof Config !== "undefined" && Config.saves) {
+                Config.saves.descriptions = function (saveType) {
+                        return buildDescription();
+                };
+        }
+
+        setup.saveMetadata = {
+                buildDescription: buildDescription
+        };
+})();

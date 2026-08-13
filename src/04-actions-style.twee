@@ -12,17 +12,20 @@
         padding: calc(var(--ui-unit) * 0.625) calc(var(--ui-unit) * 1.25);
         box-sizing: border-box;
         color: var(--ui-text);
-        background: transparent;
+        background: var(--ui-bg-raised);
         border: 1px solid var(--ui-border);
         border-radius: 3px;
         font: inherit;
         text-transform: uppercase;
         cursor: pointer;
         user-select: none;
+        box-shadow: var(--shadow-z1, none);
+        transition: background 0.12s ease, border-color 0.12s ease, box-shadow 0.12s ease;
 }
 .ui-action:hover:not(:disabled) {
         background: var(--ui-hover);
         border-color: var(--ui-text);
+        box-shadow: var(--shadow-z2, none);
 }
 .ui-action:disabled {
         color: #555;

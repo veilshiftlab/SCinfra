@@ -102,24 +102,28 @@
         setup.npcs.register("uncle", {
                 name: "Uncle",
                 color: "#e74c3c",
-                description: "Alex's uncle, drives the truck to campus."
+                description: "Alex's uncle, drives the truck to campus.",
+                portrait: "assets/campus.png"
         });
 
         setup.npcs.register("dean", {
                 name: "Dean Fogekirk",
                 color: "#f1c40f",
-                description: "Dean of Admissions, University of Oakland."
+                description: "Dean of Admissions, University of Oakland.",
+                portrait: "assets/library.png"
         });
 
         setup.npcs.register("librarian", {
                 name: "Librarian",
                 color: "#9b59b6",
-                description: "Older woman supervising the library front desk."
+                description: "Older woman supervising the library front desk.",
+                portrait: "assets/study.png"
         });
 
         setup.npcs.register("desk_clerk", {
                 name: "Desk Clerk",
                 color: "#1abc9c",
-                description: "Woman at the front desk, eyes planted to the screen."
+                description: "Woman at the front desk, eyes planted to the screen.",
+                portrait: "assets/cafeteria.png"
         });
 })();

@@ -50,6 +50,16 @@
                 var fontScale = typeof s.fontScale === "number"
                         ? s.fontScale : 1.0;
 
+                /* Transition duration: Instant=0ms, Fast=120ms, Slow=300ms.
+                 * Respects prefers-reduced-motion (forced to 0ms). */
+                var transitionSpeed = s.transitionSpeed || "Fast";
+                var transitionDuration = transitionSpeed === "Instant" ? "0ms"
+                        : transitionSpeed === "Slow" ? "300ms"
+                        : "120ms";
+                if (window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+                        transitionDuration = "0ms";
+                }
+
                 var wrapper = document.getElementById("scale-wrapper");
                 var targets = [document.documentElement];
                 if (wrapper) targets.push(wrapper);
@@ -58,6 +68,7 @@
                         el.style.setProperty("--base-w", currentBase.w + "px");
                         el.style.setProperty("--base-h", currentBase.h + "px");
                         el.style.setProperty("--font-scale", String(fontScale));
+                        el.style.setProperty("--transition-duration", transitionDuration);
                 });
 
                 /* Recompute scale (BASE_W/H changed) and scene visibility. */

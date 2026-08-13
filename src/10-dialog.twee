@@ -1,25 +1,24 @@
 :: DialogMacro [script]
 /* =========================================================================
- * Module: dialog - colorized character dialogue, backed by the NPC catalog.
+ * Module: dialog - colorized character dialogue + prose name coloring,
+ * backed by the NPC catalog.
  *
- * Usage:
- *   <<dialog "npc_id">>Spoken text, including multiple lines.<</dialog>>
+ * Macros:
+ *   <<dialog "npc_id">>Spoken text.<</dialog>>
+ *       Renders the spoken text in the NPC's dialog color. The NPC must
+ *       be registered in setup.npcs.
  *
- * The first argument is an NPC id, NOT a raw color.  The NPC's color (and
- * any other catalogued properties) are looked up in setup.npcs.  This keeps
- * presentation data in one place — the catalog — so story passages never
- * hardcode colors and a single NPC recolor propagates everywhere.
+ *   <<name "npc_id">>
+ *       Renders the NPC's display name in their dialog color, inline
+ *       within prose. Use this whenever you write a character's name in
+ *       narration so the player associates the name color with the
+ *       dialog color — they'll know who's about to speak.
  *
- * To add a new speaker, register them in 07-catalogue.twee:
+ *       Authoring rule: ALWAYS use <<name "uncle">> in prose, never
+ *       write the name raw. One raw name breaks the color association.
  *
- *   setup.npcs.register("dean", {
- *       name: "Dean Fogekirk",
- *       color: "#f1c40f",
- *       portrait: "assets/characters/dean.png"  // optional
- *   });
- *
- * NPCs can also be flagged `silence: true` to suppress the unknown-NPC
- * error (handy for unimplemented placeholders during development).
+ * Both macros source their color from setup.npcs so recoloring an NPC
+ * is a one-line change in 07-catalogue.twee that propagates everywhere.
  * ========================================================================= */
 (function () {
         "use strict";
@@ -54,6 +53,30 @@
                         if (this.payload[0] && this.payload[0].contents) {
                                 new Wikifier(el, this.payload[0].contents);
                         }
+                }
+        });
+
+        Macro.add("name", {
+                handler: function () {
+                        if (!this.args.length || !text(this.args[0]).trim()) {
+                                return this.error('usage: <<name "npc_id">>');
+                        }
+
+                        var npcId = text(this.args[0]).trim();
+                        var npc = setup.npcs.get(npcId);
+                        if (!npc) {
+                                return this.error(
+                                        'unknown NPC "' + npcId + '" — register it via ' +
+                                        'setup.npcs.register("' + npcId + '", { name: "...", color: "..." })'
+                                );
+                        }
+
+                        var el = document.createElement("span");
+                        el.className = "npc-name npc-name--" + npcId;
+                        el.style.color = npc.color;
+                        el.setAttribute("data-npc", npcId);
+                        el.textContent = npc.name || npcId;
+                        this.output.appendChild(el);
                 }
         });
 })();
